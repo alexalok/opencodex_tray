@@ -108,7 +108,9 @@ open dist/OpenCodexTray.app
 Tray title shows Claude icon + raw Claude pool percentage, then Codex icon +
 Pro-equivalent Codex pool percentage. Click it for separate `Codex Pool` and
 `Claude Pool` sections with per-account rows, `Refresh Now`, errors, and
-`Quit`. App has no Dock icon.
+`Quit`. `Launch at Login` registers the app through macOS Service Management.
+If macOS requires approval, use `Open Login Items Settings` from the tray menu.
+App has no Dock icon.
 
 ## License
 

@@ -1,5 +1,6 @@
 import AppKit
 import PauseWorkerCore
+import ServiceManagement
 import SwiftUI
 
 @main
@@ -14,6 +15,7 @@ struct OpenCodexTrayApp: App {
 
     var body: some Scene {
         MenuBarExtra {
+            Group {
             Section("Codex Pool") {
                 if model.codexRows.isEmpty {
                     Text(model.errorMessage == nil ? "Loading…" : "Unavailable")
@@ -41,10 +43,26 @@ struct OpenCodexTrayApp: App {
                 Text("Claude error: \(error)")
             }
             Divider()
+            Toggle("Launch at Login", isOn: Binding(
+                get: { model.launchAtLoginEnabled },
+                set: { model.setLaunchAtLogin($0) }
+            ))
+            if model.launchAtLoginRequiresApproval {
+                Text("Launch at login requires approval")
+                Button("Open Login Items Settings") {
+                    SMAppService.openSystemSettingsLoginItems()
+                }
+            }
+            if let error = model.launchAtLoginErrorMessage {
+                Text("Launch at login: \(error)")
+            }
+            Divider()
             Button("Refresh Now") { Task { await model.refresh() } }
                 .keyboardShortcut("r")
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
+            }
+            .onAppear { model.refreshLaunchAtLogin() }
         } label: {
             TrayStatusLabel(
                 claudePercentage: model.claudeTrayTitle,
@@ -169,23 +187,34 @@ final class TrayViewModel: ObservableObject {
     @Published private(set) var codexRows: [AccountAllowance] = []
     @Published private(set) var errorMessage: String?
     @Published private(set) var claudeErrorMessage: String?
+    @Published private(set) var launchAtLoginEnabled = false
+    @Published private(set) var launchAtLoginRequiresApproval = false
+    @Published private(set) var launchAtLoginErrorMessage: String?
 
     var trayAccessibilityLabel: String {
         "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)"
     }
 
     private let worker: PauseWorker?
+    private let launchAtLoginController: LaunchAtLoginController
     private let interval: TimeInterval
     private var pollingTask: Task<Void, Never>?
 
-    init(worker: PauseWorker?, interval: TimeInterval, startupError: String? = nil) {
+    init(
+        worker: PauseWorker?,
+        interval: TimeInterval,
+        startupError: String? = nil,
+        launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
+    ) {
         self.worker = worker
         self.interval = interval
+        self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
         self.errorMessage = startupError
         if startupError != nil {
             claudeTrayTitle = "!"
             codexTrayTitle = "!"
         }
+        syncLaunchAtLoginState()
     }
 
     static func bootstrap() -> TrayViewModel {
@@ -221,6 +250,22 @@ final class TrayViewModel: ObservableObject {
         }
     }
 
+    func refreshLaunchAtLogin() {
+        launchAtLoginController.refresh()
+        syncLaunchAtLoginState()
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        launchAtLoginController.setEnabled(enabled)
+        syncLaunchAtLoginState()
+    }
+
+    private func syncLaunchAtLoginState() {
+        launchAtLoginEnabled = launchAtLoginController.isEnabled
+        launchAtLoginRequiresApproval = launchAtLoginController.requiresApproval
+        launchAtLoginErrorMessage = launchAtLoginController.errorMessage
+    }
+
     func refresh() async {
         guard let worker else { return }
         do {
@@ -239,5 +284,28 @@ final class TrayViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             codexTrayTitle = "!"
         }
+    }
+}
+
+@MainActor
+private final class MainAppLaunchAtLoginService: LaunchAtLoginService {
+    private let service = SMAppService.mainApp
+
+    var status: LaunchAtLoginStatus {
+        switch service.status {
+        case .notRegistered: .notRegistered
+        case .enabled: .enabled
+        case .requiresApproval: .requiresApproval
+        case .notFound: .notFound
+        @unknown default: .notFound
+        }
+    }
+
+    func register() throws {
+        try service.register()
+    }
+
+    func unregister() throws {
+        try service.unregister()
     }
 }
