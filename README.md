@@ -100,10 +100,37 @@ swift run pause-worker-once
 
 ## Build app
 
+Local builds use an ad-hoc signature and do not contact Apple:
+
 ```bash
 ./scripts/build-app.sh
 open dist/OpenCodexTray.app
 ```
+
+Trusted direct distribution requires the local Developer ID identity and a
+one-time Notary service Keychain profile:
+
+```bash
+xcrun notarytool store-credentials "YOUR_NOTARY_PROFILE" \
+  --apple-id "YOUR_APPLE_ACCOUNT" \
+  --team-id "YOUR_TEAM_ID"
+```
+
+Enter an app-specific password when prompted. Copy `.env.example` to `.env`
+and replace its placeholders with your local signing identity and Keychain
+profile. `.env` is ignored by Git.
+
+The build reads only `SIGNING_IDENTITY` and `NOTARY_PROFILE` from `.env` as
+literal values; it does not execute the file as shell code.
+
+```bash
+cp .env.example .env
+NOTARIZE=1 ./scripts/build-app.sh
+```
+
+This signs, notarizes, staples, and verifies the release. The distributable
+artifact is `dist/OpenCodexTray.zip`. Environment variables override values
+loaded from `.env`.
 
 Tray title shows Claude icon + raw Claude pool percentage, then Codex icon +
 Pro-equivalent Codex pool percentage. Click it for separate `Codex Pool` and

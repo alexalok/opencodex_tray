@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import PauseWorkerCore
 import ServiceManagement
 import SwiftUI
@@ -8,6 +9,10 @@ struct OpenCodexTrayApp: App {
     @StateObject private var model: TrayViewModel
 
     init() {
+        if CommandLine.arguments.contains("--verify-resources") {
+            ProviderIconStore.verifyResourcesAndExit()
+        }
+
         let model = TrayViewModel.bootstrap()
         _model = StateObject(wrappedValue: model)
         model.startPolling()
@@ -157,25 +162,37 @@ private struct TrayStatusLabel: View {
 
 @MainActor
 private enum ProviderIconStore {
+    private static let bundleName = "OpenCodexPauseWorker_OpenCodexTray"
     private static var cache: [String: CGImage] = [:]
-    private static let resourceBundle: Bundle = {
+    private static let resourceBundle: Bundle? = {
         if let url = Bundle.main.url(
-            forResource: "OpenCodexPauseWorker_OpenCodexTray",
+            forResource: bundleName,
             withExtension: "bundle"
         ), let bundle = Bundle(url: url) {
             return bundle
         }
-        return Bundle.module
+
+        let executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+            .standardizedFileURL
+            .deletingLastPathComponent()
+        return Bundle(url: executableURL.appendingPathComponent("\(bundleName).bundle"))
     }()
 
     static func cgImage(named name: String) -> CGImage? {
         if let cached = cache[name] { return cached }
-        guard let url = resourceBundle.url(forResource: name, withExtension: "svg"),
+        guard let url = resourceBundle?.url(forResource: name, withExtension: "svg"),
               let image = NSImage(contentsOf: url) else { return nil }
         var rect = NSRect(origin: .zero, size: image.size)
         guard let cgImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return nil }
         cache[name] = cgImage
         return cgImage
+    }
+
+    static func verifyResourcesAndExit() -> Never {
+        let names = ["ProviderIcon-claude", "ProviderIcon-codex"]
+        let resourcesAvailable = names.allSatisfy { cgImage(named: $0) != nil }
+        print(resourcesAvailable ? "Resources OK" : "Resources unavailable")
+        Darwin.exit(resourcesAvailable ? EXIT_SUCCESS : EXIT_FAILURE)
     }
 }
 
