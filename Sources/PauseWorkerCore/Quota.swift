@@ -29,12 +29,20 @@ public struct ClaudeAccount: Equatable, Sendable {
     public let id: String
     public let alias: String?
     public let email: String?
+    public let fiveHourUsedPercent: Double?
     public let weeklyUsedPercent: Double?
 
-    public init(id: String, alias: String?, email: String?, weeklyUsedPercent: Double?) {
+    public init(
+        id: String,
+        alias: String?,
+        email: String?,
+        fiveHourUsedPercent: Double? = nil,
+        weeklyUsedPercent: Double?
+    ) {
         self.id = id
         self.alias = alias
         self.email = email
+        self.fiveHourUsedPercent = fiveHourUsedPercent
         self.weeklyUsedPercent = weeklyUsedPercent
     }
 }
@@ -57,6 +65,42 @@ public struct AccountAllowance: Equatable, Sendable, Identifiable {
 public struct QuotaSummary: Equatable, Sendable {
     public let trayPercentage: Int?
     public let rows: [AccountAllowance]
+}
+
+public struct ClaudeAccountUsage: Equatable, Sendable, Identifiable {
+    public var id: String { accountId }
+    public let accountId: String
+    public let label: String
+    public let fiveHourUsedPercent: Double?
+    public let weeklyUsedPercent: Double?
+
+    public init(
+        accountId: String,
+        label: String,
+        fiveHourUsedPercent: Double?,
+        weeklyUsedPercent: Double?
+    ) {
+        self.accountId = accountId
+        self.label = label
+        self.fiveHourUsedPercent = fiveHourUsedPercent
+        self.weeklyUsedPercent = weeklyUsedPercent
+    }
+}
+
+public struct ClaudeQuotaSummary: Equatable, Sendable {
+    public let fiveHourUsedPercentage: Int?
+    public let weeklyUsedPercentage: Int?
+    public let rows: [ClaudeAccountUsage]
+
+    public init(
+        fiveHourUsedPercentage: Int?,
+        weeklyUsedPercentage: Int?,
+        rows: [ClaudeAccountUsage]
+    ) {
+        self.fiveHourUsedPercentage = fiveHourUsedPercentage
+        self.weeklyUsedPercentage = weeklyUsedPercentage
+        self.rows = rows
+    }
 }
 
 public enum QuotaError: Error, Equatable, LocalizedError, Sendable {
@@ -116,22 +160,25 @@ public enum QuotaCalculator {
 }
 
 public enum ClaudeQuotaCalculator {
-    public static func summarize(accounts: [ClaudeAccount]) -> QuotaSummary {
+    public static func summarize(accounts: [ClaudeAccount]) -> ClaudeQuotaSummary {
         let rows = accounts.map { account in
-            AccountAllowance(
+            ClaudeAccountUsage(
                 accountId: account.id,
                 label: account.alias ?? account.email ?? account.id,
-                remainingPercent: account.weeklyUsedPercent.map { max(100 - max($0, 0), 0) },
-                totalPercent: 100
+                fiveHourUsedPercent: account.fiveHourUsedPercent,
+                weeklyUsedPercent: account.weeklyUsedPercent
             )
         }
-        guard rows.allSatisfy({ $0.remainingPercent != nil }) else {
-            return QuotaSummary(trayPercentage: nil, rows: rows)
-        }
-        return QuotaSummary(
-            trayPercentage: floorStable(rows.reduce(0) { $0 + ($1.remainingPercent ?? 0) }),
+        return ClaudeQuotaSummary(
+            fiveHourUsedPercentage: aggregate(rows.map(\.fiveHourUsedPercent)),
+            weeklyUsedPercentage: aggregate(rows.map(\.weeklyUsedPercent)),
             rows: rows
         )
+    }
+
+    private static func aggregate(_ values: [Double?]) -> Int? {
+        guard values.allSatisfy({ $0 != nil }) else { return nil }
+        return floorStable(values.reduce(0) { $0 + ($1 ?? 0) })
     }
 }
 

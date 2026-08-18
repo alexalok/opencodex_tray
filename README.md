@@ -10,8 +10,8 @@ allowances.
 
 [OpenCodex](https://github.com/lidge-jun/opencodex) is a local proxy that
 multiplexes several Codex and Claude accounts behind one endpoint and tracks
-each account's weekly usage. This app sits in the macOS menu bar, polls that
-proxy, and turns its per-account quota data into an at-a-glance pool total.
+their quota usage. This app sits in the macOS menu bar, polls that proxy, and
+turns its per-account quota data into at-a-glance pool totals.
 
 ![Menu-bar dropdown showing Codex and Claude pool percentages with per-account rows](assets/tray-screenshot.png)
 
@@ -43,16 +43,17 @@ Missing weekly quota or unknown plan displays `—` and makes tray total `—`
 rather than inventing capacity. Pause threshold comparison stays in each
 account's native percentage; normalization changes display math only.
 
-Claude uses OpenCodex's per-account Anthropic weekly quota. No plan conversion
-is applied:
+Claude uses OpenCodex's raw per-account Anthropic utilization. No plan
+conversion or remaining-capacity inversion is applied:
 
 ```text
-Claude account remaining = max(100 - weekly usage, 0)
-Claude tray = floor(sum(account remaining))
+Claude row = 5-hour usage / 1-week usage
+Claude tray = floor(sum(5-hour usage)) / floor(sum(1-week usage))
 ```
 
-Like Codex, Claude pool total is absolute allowance and can exceed `100%`.
-Missing quota makes that account and Claude tray total display `—`.
+For example, `50%` 5-hour utilization and `20%` weekly utilization displays as
+`50%/20%`. Like Codex, each Claude pool total is absolute across accounts and
+can exceed `100%`. A missing window displays `—` in only that slot.
 
 ## Configure
 
@@ -132,12 +133,12 @@ This signs, notarizes, staples, and verifies the release. The distributable
 artifact is `dist/OpenCodexTray.zip`. Environment variables override values
 loaded from `.env`.
 
-Tray title shows Claude icon + raw Claude pool percentage, then Codex icon +
-Pro-equivalent Codex pool percentage. Click it for separate `Codex Pool` and
-`Claude Pool` sections with per-account rows, `Refresh Now`, errors, and
-`Quit`. `Launch at Login` registers the app through macOS Service Management.
-If macOS requires approval, use `Open Login Items Settings` from the tray menu.
-App has no Dock icon.
+Tray title shows Claude icon + raw Claude pool `5h/1w` utilization, then Codex
+icon + Pro-equivalent Codex pool percentage. Click it for separate `Codex Pool`
+and `Claude Pool (5h/1w)` sections with per-account rows, `Refresh Now`, errors,
+and `Quit`. `Launch at Login` registers the app through macOS Service
+Management. If macOS requires approval, use `Open Login Items Settings` from
+the tray menu. App has no Dock icon.
 
 ## License
 

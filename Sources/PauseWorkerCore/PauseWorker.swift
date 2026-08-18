@@ -1,6 +1,6 @@
 public struct WorkerRefresh: Equatable, Sendable {
     public let codexSummary: QuotaSummary
-    public let claudeSummary: QuotaSummary?
+    public let claudeSummary: ClaudeQuotaSummary?
     public let claudeErrorMessage: String?
     public let pausedAccountID: String?
 }
@@ -57,7 +57,7 @@ public actor PauseWorker {
 }
 
 private struct ClaudeRefreshResult: Sendable {
-    let summary: QuotaSummary?
+    let summary: ClaudeQuotaSummary?
     let errorMessage: String?
 }
 

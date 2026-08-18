@@ -26,7 +26,7 @@ final class OpenCodexClientTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFetchClaudeAccountsUsesAnthropicPerAccountWeeklyQuotaEndpoint() async throws {
+    func testFetchClaudeAccountsUsesAnthropicPerAccountQuotaEndpoint() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
         let session = URLSession(configuration: configuration)
