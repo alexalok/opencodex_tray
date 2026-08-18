@@ -67,38 +67,38 @@ public struct QuotaSummary: Equatable, Sendable {
     public let rows: [AccountAllowance]
 }
 
-public struct ClaudeAccountUsage: Equatable, Sendable, Identifiable {
+public struct ClaudeAccountAllowance: Equatable, Sendable, Identifiable {
     public var id: String { accountId }
     public let accountId: String
     public let label: String
-    public let fiveHourUsedPercent: Double?
-    public let weeklyUsedPercent: Double?
+    public let fiveHourRemainingPercent: Double?
+    public let weeklyRemainingPercent: Double?
 
     public init(
         accountId: String,
         label: String,
-        fiveHourUsedPercent: Double?,
-        weeklyUsedPercent: Double?
+        fiveHourRemainingPercent: Double?,
+        weeklyRemainingPercent: Double?
     ) {
         self.accountId = accountId
         self.label = label
-        self.fiveHourUsedPercent = fiveHourUsedPercent
-        self.weeklyUsedPercent = weeklyUsedPercent
+        self.fiveHourRemainingPercent = fiveHourRemainingPercent
+        self.weeklyRemainingPercent = weeklyRemainingPercent
     }
 }
 
 public struct ClaudeQuotaSummary: Equatable, Sendable {
-    public let fiveHourUsedPercentage: Int?
-    public let weeklyUsedPercentage: Int?
-    public let rows: [ClaudeAccountUsage]
+    public let fiveHourRemainingPercentage: Int?
+    public let weeklyRemainingPercentage: Int?
+    public let rows: [ClaudeAccountAllowance]
 
     public init(
-        fiveHourUsedPercentage: Int?,
-        weeklyUsedPercentage: Int?,
-        rows: [ClaudeAccountUsage]
+        fiveHourRemainingPercentage: Int?,
+        weeklyRemainingPercentage: Int?,
+        rows: [ClaudeAccountAllowance]
     ) {
-        self.fiveHourUsedPercentage = fiveHourUsedPercentage
-        self.weeklyUsedPercentage = weeklyUsedPercentage
+        self.fiveHourRemainingPercentage = fiveHourRemainingPercentage
+        self.weeklyRemainingPercentage = weeklyRemainingPercentage
         self.rows = rows
     }
 }
@@ -162,16 +162,16 @@ public enum QuotaCalculator {
 public enum ClaudeQuotaCalculator {
     public static func summarize(accounts: [ClaudeAccount]) -> ClaudeQuotaSummary {
         let rows = accounts.map { account in
-            ClaudeAccountUsage(
+            ClaudeAccountAllowance(
                 accountId: account.id,
                 label: account.alias ?? account.email ?? account.id,
-                fiveHourUsedPercent: account.fiveHourUsedPercent,
-                weeklyUsedPercent: account.weeklyUsedPercent
+                fiveHourRemainingPercent: account.fiveHourUsedPercent.map { max(100 - max($0, 0), 0) },
+                weeklyRemainingPercent: account.weeklyUsedPercent.map { max(100 - max($0, 0), 0) }
             )
         }
         return ClaudeQuotaSummary(
-            fiveHourUsedPercentage: aggregate(rows.map(\.fiveHourUsedPercent)),
-            weeklyUsedPercentage: aggregate(rows.map(\.weeklyUsedPercent)),
+            fiveHourRemainingPercentage: aggregate(rows.map(\.fiveHourRemainingPercent)),
+            weeklyRemainingPercentage: aggregate(rows.map(\.weeklyRemainingPercent)),
             rows: rows
         )
     }

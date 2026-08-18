@@ -52,7 +52,7 @@ final class WorkerTests: XCTestCase {
         XCTAssertNotNil(result.claudeErrorMessage)
     }
 
-    func testRefreshReturnsCodexAndRawClaudeFiveHourAndWeeklyPoolSummaries() async throws {
+    func testRefreshReturnsCodexAndClaudeRemainingPoolSummaries() async throws {
         let client = FakeOpenCodexClient(
             accounts: [
                 OpenCodexAccount(id: "friend-id", alias: "workmate", plan: "prolite", isMain: false, paused: false, weeklyUsedPercent: 53),
@@ -79,8 +79,8 @@ final class WorkerTests: XCTestCase {
         let result = try await worker.refresh()
 
         XCTAssertEqual(result.codexSummary.trayPercentage, 4)
-        XCTAssertEqual(result.claudeSummary?.fiveHourUsedPercentage, 60)
-        XCTAssertEqual(result.claudeSummary?.weeklyUsedPercentage, 80)
+        XCTAssertEqual(result.claudeSummary?.fiveHourRemainingPercentage, 140)
+        XCTAssertEqual(result.claudeSummary?.weeklyRemainingPercentage, 120)
         XCTAssertEqual(result.claudeSummary?.rows.map(\.label), ["work", "personal"])
         XCTAssertNil(result.claudeErrorMessage)
     }

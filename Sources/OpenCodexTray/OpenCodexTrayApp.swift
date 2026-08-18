@@ -200,7 +200,7 @@ private enum ProviderIconStore {
 final class TrayViewModel: ObservableObject {
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
-    @Published private(set) var claudeRows: [ClaudeAccountUsage] = []
+    @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
     @Published private(set) var codexRows: [AccountAllowance] = []
     @Published private(set) var errorMessage: String?
     @Published private(set) var claudeErrorMessage: String?
