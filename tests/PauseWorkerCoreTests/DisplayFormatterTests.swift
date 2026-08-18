@@ -12,4 +12,28 @@ final class DisplayFormatterTests: XCTestCase {
             totalPercent: 17.5
         )), "workmate: 4.25%/17.5%")
     }
+
+    func testFormatsClaudeFiveHourThenWeeklyUsageForTrayAndDropdown() {
+        let summary = ClaudeQuotaSummary(
+            fiveHourUsedPercentage: 50,
+            weeklyUsedPercentage: 20,
+            rows: []
+        )
+        let row = ClaudeAccountUsage(
+            accountId: "claude-a",
+            label: "work",
+            fiveHourUsedPercent: 50.25,
+            weeklyUsedPercent: 20
+        )
+        let partialRow = ClaudeAccountUsage(
+            accountId: "claude-b",
+            label: "personal",
+            fiveHourUsedPercent: nil,
+            weeklyUsedPercent: 20
+        )
+
+        XCTAssertEqual(DisplayFormatter.claudeTrayTitle(summary), "50%/20%")
+        XCTAssertEqual(DisplayFormatter.claudeRow(row), "work: 50.25%/20%")
+        XCTAssertEqual(DisplayFormatter.claudeRow(partialRow), "personal: —/20%")
+    }
 }

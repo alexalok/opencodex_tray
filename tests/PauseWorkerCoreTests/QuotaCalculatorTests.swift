@@ -108,16 +108,61 @@ final class QuotaCalculatorTests: XCTestCase {
         XCTAssertEqual(summary.trayPercentage, 99)
     }
 
-    func testClaudeTraySumsRawWeeklyRemainingAllowancesWithoutPlanConversion() {
+    func testClaudeSummarySumsRawFiveHourAndWeeklyUtilizationInDisplayOrder() {
         let summary = ClaudeQuotaCalculator.summarize(accounts: [
-            ClaudeAccount(id: "claude-a", alias: "work", email: "w***@example.com", weeklyUsedPercent: 35),
-            ClaudeAccount(id: "claude-b", alias: nil, email: "p***@example.com", weeklyUsedPercent: 60),
+            ClaudeAccount(
+                id: "claude-a",
+                alias: "work",
+                email: "w***@example.com",
+                fiveHourUsedPercent: 50,
+                weeklyUsedPercent: 20
+            ),
+            ClaudeAccount(
+                id: "claude-b",
+                alias: nil,
+                email: "p***@example.com",
+                fiveHourUsedPercent: 10,
+                weeklyUsedPercent: 60
+            ),
         ])
 
-        XCTAssertEqual(summary.trayPercentage, 105)
+        XCTAssertEqual(summary.fiveHourUsedPercentage, 60)
+        XCTAssertEqual(summary.weeklyUsedPercentage, 80)
         XCTAssertEqual(summary.rows, [
-            AccountAllowance(accountId: "claude-a", label: "work", remainingPercent: 65, totalPercent: 100),
-            AccountAllowance(accountId: "claude-b", label: "p***@example.com", remainingPercent: 40, totalPercent: 100),
+            ClaudeAccountUsage(
+                accountId: "claude-a",
+                label: "work",
+                fiveHourUsedPercent: 50,
+                weeklyUsedPercent: 20
+            ),
+            ClaudeAccountUsage(
+                accountId: "claude-b",
+                label: "p***@example.com",
+                fiveHourUsedPercent: 10,
+                weeklyUsedPercent: 60
+            ),
         ])
+    }
+
+    func testClaudeSummaryMarksOnlyMissingAggregateWindowUnknown() {
+        let summary = ClaudeQuotaCalculator.summarize(accounts: [
+            ClaudeAccount(
+                id: "claude-a",
+                alias: "work",
+                email: nil,
+                fiveHourUsedPercent: nil,
+                weeklyUsedPercent: 20
+            ),
+            ClaudeAccount(
+                id: "claude-b",
+                alias: "personal",
+                email: nil,
+                fiveHourUsedPercent: 10,
+                weeklyUsedPercent: 30
+            ),
+        ])
+
+        XCTAssertNil(summary.fiveHourUsedPercentage)
+        XCTAssertEqual(summary.weeklyUsedPercentage, 50)
     }
 }

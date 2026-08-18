@@ -30,12 +30,12 @@ struct OpenCodexTrayApp: App {
                     }
                 }
             }
-            Section("Claude Pool") {
+            Section("Claude Pool (5h/1w)") {
                 if model.claudeRows.isEmpty {
                     Text(model.errorMessage == nil && model.claudeErrorMessage == nil ? "Loading…" : "Unavailable")
                 } else {
                     ForEach(model.claudeRows) { row in
-                        Text(DisplayFormatter.row(row))
+                        Text(DisplayFormatter.claudeRow(row))
                     }
                 }
             }
@@ -70,7 +70,7 @@ struct OpenCodexTrayApp: App {
             .onAppear { model.refreshLaunchAtLogin() }
         } label: {
             TrayStatusLabel(
-                claudePercentage: model.claudeTrayTitle,
+                claudeLimits: model.claudeTrayTitle,
                 codexPercentage: model.codexTrayTitle,
                 accessibilityLabel: model.trayAccessibilityLabel
             )
@@ -81,7 +81,7 @@ struct OpenCodexTrayApp: App {
 
 @MainActor
 private struct TrayStatusLabel: View {
-    let claudePercentage: String
+    let claudeLimits: String
     let codexPercentage: String
     let accessibilityLabel: String
 
@@ -91,13 +91,13 @@ private struct TrayStatusLabel: View {
            let codexIcon = ProviderIconStore.cgImage(named: "ProviderIcon-codex") {
             Self.statusImage(
                 claudeIcon: claudeIcon,
-                claudePercentage: claudePercentage,
+                claudeLimits: claudeLimits,
                 codexIcon: codexIcon,
                 codexPercentage: codexPercentage,
                 accessibilityLabel: accessibilityLabel
             )
         } else {
-            Text("Claude \(claudePercentage)  Codex \(codexPercentage)")
+            Text("Claude \(claudeLimits)  Codex \(codexPercentage)")
                 .monospacedDigit()
                 .accessibilityLabel(accessibilityLabel)
         }
@@ -105,7 +105,7 @@ private struct TrayStatusLabel: View {
 
     private static func statusImage(
         claudeIcon: CGImage,
-        claudePercentage: String,
+        claudeLimits: String,
         codexIcon: CGImage,
         codexPercentage: String,
         accessibilityLabel: String
@@ -117,7 +117,7 @@ private struct TrayStatusLabel: View {
         let fontSize = NSFont.systemFontSize
         let font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .regular)
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
-        let claudeTextWidth = ceil((claudePercentage as NSString).size(withAttributes: attributes).width)
+        let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
         let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
         let width = iconSize + iconTextGap + claudeTextWidth
             + groupGap + iconSize + iconTextGap + codexTextWidth
@@ -131,7 +131,7 @@ private struct TrayStatusLabel: View {
                 in: CGRect(x: 0, y: 1, width: iconSize, height: iconSize)
             )
 
-            var claudeText = context.resolve(Text(claudePercentage).font(textFont))
+            var claudeText = context.resolve(Text(claudeLimits).font(textFont))
             claudeText.shading = .color(.white)
             let claudeTextX = iconSize + iconTextGap
             context.draw(
@@ -200,7 +200,7 @@ private enum ProviderIconStore {
 final class TrayViewModel: ObservableObject {
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
-    @Published private(set) var claudeRows: [AccountAllowance] = []
+    @Published private(set) var claudeRows: [ClaudeAccountUsage] = []
     @Published private(set) var codexRows: [AccountAllowance] = []
     @Published private(set) var errorMessage: String?
     @Published private(set) var claudeErrorMessage: String?
@@ -292,7 +292,7 @@ final class TrayViewModel: ObservableObject {
             errorMessage = nil
             if let claudeSummary = result.claudeSummary {
                 claudeRows = claudeSummary.rows
-                claudeTrayTitle = DisplayFormatter.trayTitle(claudeSummary.trayPercentage)
+                claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
             } else {
                 claudeTrayTitle = "!"
             }

@@ -104,6 +104,7 @@ public enum OpenCodexResponseDecoder {
                 id: dto.id,
                 alias: dto.alias,
                 email: dto.email,
+                fiveHourUsedPercent: dto.quota?.fiveHourPercent,
                 weeklyUsedPercent: dto.quota?.weeklyPercent
             )
         }
@@ -132,7 +133,10 @@ private struct AccountDTO: Decodable {
     let paused: Bool
     let quota: QuotaDTO?
 }
-private struct QuotaDTO: Decodable { let weeklyPercent: Double? }
+private struct QuotaDTO: Decodable {
+    let fiveHourPercent: Double?
+    let weeklyPercent: Double?
+}
 private struct ClaudeAccountsResponse: Decodable { let accounts: [ClaudeAccountDTO] }
 private struct ClaudeAccountDTO: Decodable {
     let id: String

@@ -14,8 +14,10 @@ enum PauseWorkerOnce {
                 thresholdPercent: config.thresholdPercent
             )
             let result = try await worker.refresh()
-            print("Claude \(DisplayFormatter.trayTitle(result.claudeSummary?.trayPercentage))")
-            for row in result.claudeSummary?.rows ?? [] { print(DisplayFormatter.row(row)) }
+            if let summary = result.claudeSummary {
+                print("Claude \(DisplayFormatter.claudeTrayTitle(summary))")
+                for row in summary.rows { print(DisplayFormatter.claudeRow(row)) }
+            }
             if let error = result.claudeErrorMessage { print("Claude error: \(error)") }
             print("Codex \(DisplayFormatter.trayTitle(result.codexSummary.trayPercentage))")
             for row in result.codexSummary.rows { print(DisplayFormatter.row(row)) }

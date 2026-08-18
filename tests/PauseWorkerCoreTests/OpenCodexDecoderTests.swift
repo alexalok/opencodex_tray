@@ -17,14 +17,26 @@ final class OpenCodexDecoderTests: XCTestCase {
         )])
     }
 
-    func testDecodesAnthropicAccountAliasesAndWeeklyUsage() throws {
+    func testDecodesAnthropicAccountAliasesAndFiveHourAndWeeklyUsage() throws {
         let data = Data(#"{"activeAccountId":"claude-a","accounts":[{"id":"claude-a","alias":"work","email":"w***@example.com","active":true,"quota":{"fiveHourPercent":7,"weeklyPercent":35,"updatedAt":1786381200000}},{"id":"claude-b","email":"p***@example.com","active":false,"quotaUnavailable":true}]}"#.utf8)
 
         let accounts = try OpenCodexResponseDecoder.decodeClaudeAccounts(data)
 
         XCTAssertEqual(accounts, [
-            ClaudeAccount(id: "claude-a", alias: "work", email: "w***@example.com", weeklyUsedPercent: 35),
-            ClaudeAccount(id: "claude-b", alias: nil, email: "p***@example.com", weeklyUsedPercent: nil),
+            ClaudeAccount(
+                id: "claude-a",
+                alias: "work",
+                email: "w***@example.com",
+                fiveHourUsedPercent: 7,
+                weeklyUsedPercent: 35
+            ),
+            ClaudeAccount(
+                id: "claude-b",
+                alias: nil,
+                email: "p***@example.com",
+                fiveHourUsedPercent: nil,
+                weeklyUsedPercent: nil
+            ),
         ])
     }
 }
