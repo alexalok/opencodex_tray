@@ -12,11 +12,11 @@ public enum DisplayFormatter {
     }
 
     public static func claudeTrayTitle(_ summary: ClaudeQuotaSummary) -> String {
-        "\(percentage(summary.fiveHourUsedPercentage))/\(percentage(summary.weeklyUsedPercentage))"
+        "\(percentage(summary.fiveHourRemainingPercentage))/\(percentage(summary.weeklyRemainingPercentage))"
     }
 
-    public static func claudeRow(_ usage: ClaudeAccountUsage) -> String {
-        "\(usage.label): \(percentage(usage.fiveHourUsedPercent))/\(percentage(usage.weeklyUsedPercent))"
+    public static func claudeRow(_ allowance: ClaudeAccountAllowance) -> String {
+        "\(allowance.label): \(percentage(allowance.fiveHourRemainingPercent))/\(percentage(allowance.weeklyRemainingPercent))"
     }
 
     private static func percentage(_ value: Int?) -> String {

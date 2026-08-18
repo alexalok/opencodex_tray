@@ -108,7 +108,30 @@ final class QuotaCalculatorTests: XCTestCase {
         XCTAssertEqual(summary.trayPercentage, 99)
     }
 
-    func testClaudeSummarySumsRawFiveHourAndWeeklyUtilizationInDisplayOrder() {
+    func testClaudeSummaryConvertsUsedPercentagesToRemainingAllowances() {
+        let summary = ClaudeQuotaCalculator.summarize(accounts: [
+            ClaudeAccount(
+                id: "claude-a",
+                alias: "work",
+                email: "w***@example.com",
+                fiveHourUsedPercent: 3,
+                weeklyUsedPercent: 12
+            ),
+        ])
+
+        XCTAssertEqual(summary.fiveHourRemainingPercentage, 97)
+        XCTAssertEqual(summary.weeklyRemainingPercentage, 88)
+        XCTAssertEqual(summary.rows, [
+            ClaudeAccountAllowance(
+                accountId: "claude-a",
+                label: "work",
+                fiveHourRemainingPercent: 97,
+                weeklyRemainingPercent: 88
+            ),
+        ])
+    }
+
+    func testClaudeSummarySumsFiveHourAndWeeklyRemainingAllowancesInDisplayOrder() {
         let summary = ClaudeQuotaCalculator.summarize(accounts: [
             ClaudeAccount(
                 id: "claude-a",
@@ -126,20 +149,20 @@ final class QuotaCalculatorTests: XCTestCase {
             ),
         ])
 
-        XCTAssertEqual(summary.fiveHourUsedPercentage, 60)
-        XCTAssertEqual(summary.weeklyUsedPercentage, 80)
+        XCTAssertEqual(summary.fiveHourRemainingPercentage, 140)
+        XCTAssertEqual(summary.weeklyRemainingPercentage, 120)
         XCTAssertEqual(summary.rows, [
-            ClaudeAccountUsage(
+            ClaudeAccountAllowance(
                 accountId: "claude-a",
                 label: "work",
-                fiveHourUsedPercent: 50,
-                weeklyUsedPercent: 20
+                fiveHourRemainingPercent: 50,
+                weeklyRemainingPercent: 80
             ),
-            ClaudeAccountUsage(
+            ClaudeAccountAllowance(
                 accountId: "claude-b",
                 label: "p***@example.com",
-                fiveHourUsedPercent: 10,
-                weeklyUsedPercent: 60
+                fiveHourRemainingPercent: 90,
+                weeklyRemainingPercent: 40
             ),
         ])
     }
@@ -162,7 +185,7 @@ final class QuotaCalculatorTests: XCTestCase {
             ),
         ])
 
-        XCTAssertNil(summary.fiveHourUsedPercentage)
-        XCTAssertEqual(summary.weeklyUsedPercentage, 50)
+        XCTAssertNil(summary.fiveHourRemainingPercentage)
+        XCTAssertEqual(summary.weeklyRemainingPercentage, 150)
     }
 }
