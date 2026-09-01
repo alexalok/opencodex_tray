@@ -4,9 +4,9 @@
 
 # OpenCodex Quota Tray
 
-Native macOS 14+ menu-bar app. Polls OpenCodex, pauses one exact Codex account
-alias at its configured weekly threshold, and shows Codex and Claude pool
-allowances.
+Native macOS 14+ menu-bar app and Notification Center widget. Polls OpenCodex,
+pauses one exact Codex account alias at its configured weekly threshold, and
+shows Codex and Claude pool allowances.
 
 [OpenCodex](https://github.com/lidge-jun/opencodex) is a local proxy that
 multiplexes several Codex and Claude accounts behind one endpoint and tracks
@@ -86,6 +86,18 @@ Optional env:
 Alias matching is exact and case-sensitive. Missing or duplicate target alias
 fails closed: no pause request is sent. Admin token is read once from
 `${OPENCODEX_HOME:-$HOME/.opencodex}/admin-api-token`.
+
+## Notification Center widget
+
+Build and open `dist/OpenCodexTray.app` once so macOS discovers `OpenCodex Quota`.
+Add it from Notification Center's widget gallery in small or medium size. The
+widget requests fresh Codex and Claude quota every 30 minutes and works while
+the tray app is stopped; macOS may defer refreshes.
+
+The widget reads only the default `~/.config/opencodex-quota-tray/config.json`
+and `~/.opencodex/admin-api-token` paths. Custom `XDG_CONFIG_HOME` or
+`OPENCODEX_HOME` paths continue working in the tray but are unavailable to the
+sandboxed widget.
 
 ## Develop
 
