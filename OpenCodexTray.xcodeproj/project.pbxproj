@@ -27,6 +27,9 @@
 		C10000000000000000000012 /* WidgetTestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* WidgetTestFixtures.swift */; };
 		C10000000000000000000013 /* QuotaWidgetStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* QuotaWidgetStateTests.swift */; };
 		C10000000000000000000014 /* WidgetSnapshotCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */; };
+		C10000000000000000000015 /* QuotaWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */; };
+		C10000000000000000000016 /* QuotaWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */; };
+		C10000000000000000000017 /* QuotaWidgetTimelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +71,8 @@
 		B1000000000000000000000C /* WidgetTestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTestFixtures.swift; sourceTree = "<group>"; };
 		B1000000000000000000000D /* QuotaWidgetStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetStateTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotCacheTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetTimelineProvider.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetTimelineTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000001 /* OpenCodexTray.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenCodexTray.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000002 /* OpenCodexWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenCodexWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000003 /* OpenCodexWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OpenCodexWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -137,6 +142,7 @@
 				B10000000000000000000002 /* OpenCodexWidgetBundle.swift */,
 				B1000000000000000000000A /* QuotaWidgetState.swift */,
 				B1000000000000000000000B /* WidgetSnapshotCache.swift */,
+				B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */,
 			);
 			path = Sources/OpenCodexWidget;
 			sourceTree = "<group>";
@@ -147,6 +153,7 @@
 				B1000000000000000000000C /* WidgetTestFixtures.swift */,
 				B1000000000000000000000D /* QuotaWidgetStateTests.swift */,
 				B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */,
+				B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */,
 			);
 			path = tests/OpenCodexWidgetTests;
 			sourceTree = "<group>";
@@ -323,6 +330,7 @@
 				C10000000000000000000002 /* OpenCodexWidgetBundle.swift in Sources */,
 				C1000000000000000000000E /* QuotaWidgetState.swift in Sources */,
 				C1000000000000000000000F /* WidgetSnapshotCache.swift in Sources */,
+				C10000000000000000000015 /* QuotaWidgetTimelineProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,6 +343,8 @@
 				C10000000000000000000012 /* WidgetTestFixtures.swift in Sources */,
 				C10000000000000000000013 /* QuotaWidgetStateTests.swift in Sources */,
 				C10000000000000000000014 /* WidgetSnapshotCacheTests.swift in Sources */,
+				C10000000000000000000016 /* QuotaWidgetTimelineProvider.swift in Sources */,
+				C10000000000000000000017 /* QuotaWidgetTimelineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
