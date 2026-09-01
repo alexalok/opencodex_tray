@@ -9,8 +9,6 @@ public protocol OpenCodexPausing: Sendable {
     func pauseAccount(id: String) async throws
 }
 
-public protocol OpenCodexServing: OpenCodexQuotaServing, OpenCodexPausing {}
-
 public actor OpenCodexQuotaClient: OpenCodexQuotaServing {
     private let transport: OpenCodexTransport
 
@@ -73,38 +71,6 @@ public actor OpenCodexPauseClient: OpenCodexPausing {
               response.ok, response.id == id, response.paused else {
             throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid pause response")
         }
-    }
-}
-
-public actor OpenCodexClient: OpenCodexServing {
-    private let quotaClient: OpenCodexQuotaClient
-    private let pauseClient: OpenCodexPauseClient
-
-    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil) {
-        quotaClient = OpenCodexQuotaClient(
-            baseURL: baseURL,
-            adminToken: adminToken,
-            timeout: timeout,
-            session: session
-        )
-        pauseClient = OpenCodexPauseClient(
-            baseURL: baseURL,
-            adminToken: adminToken,
-            timeout: timeout,
-            session: session
-        )
-    }
-
-    public func fetchAccounts() async throws -> [OpenCodexAccount] {
-        try await quotaClient.fetchAccounts()
-    }
-
-    public func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
-        try await quotaClient.fetchClaudeAccounts()
-    }
-
-    public func pauseAccount(id: String) async throws {
-        try await pauseClient.pauseAccount(id: id)
     }
 }
 

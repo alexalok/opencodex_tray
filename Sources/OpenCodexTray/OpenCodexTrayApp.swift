@@ -238,14 +238,24 @@ final class TrayViewModel: ObservableObject {
         do {
             let config = try WorkerConfiguration.load(environment: ProcessInfo.processInfo.environment)
             let token = try AdminTokenReader.read(path: config.adminTokenPath)
-            let client = OpenCodexClient(
+            let quotaClient = OpenCodexQuotaClient(
                 baseURL: config.baseURL,
                 adminToken: token,
                 timeout: config.requestTimeout
             )
+            let loader = QuotaSnapshotLoader(
+                client: quotaClient,
+                targetAlias: config.targetAlias,
+                thresholdPercent: config.thresholdPercent
+            )
             return TrayViewModel(
                 worker: PauseWorker(
-                    client: client,
+                    loader: loader,
+                    pauser: OpenCodexPauseClient(
+                        baseURL: config.baseURL,
+                        adminToken: token,
+                        timeout: config.requestTimeout
+                    ),
                     targetAlias: config.targetAlias,
                     thresholdPercent: config.thresholdPercent
                 ),
@@ -287,16 +297,22 @@ final class TrayViewModel: ObservableObject {
         guard let worker else { return }
         do {
             let result = try await worker.refresh()
-            codexRows = result.codexSummary.rows
-            codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
-            errorMessage = nil
-            if let claudeSummary = result.claudeSummary {
+            if let codexSummary = result.snapshot.codexSummary {
+                codexRows = codexSummary.rows
+                codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)
+                errorMessage = nil
+            } else {
+                codexTrayTitle = "!"
+                errorMessage = result.snapshot.codexErrorMessage
+            }
+            if let claudeSummary = result.snapshot.claudeSummary {
                 claudeRows = claudeSummary.rows
                 claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
+                claudeErrorMessage = nil
             } else {
                 claudeTrayTitle = "!"
+                claudeErrorMessage = result.snapshot.claudeErrorMessage
             }
-            claudeErrorMessage = result.claudeErrorMessage
         } catch {
             errorMessage = error.localizedDescription
             codexTrayTitle = "!"

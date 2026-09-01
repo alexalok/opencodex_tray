@@ -1,18 +1,28 @@
 public struct WorkerRefresh: Equatable, Sendable {
-    public let codexSummary: QuotaSummary
-    public let claudeSummary: ClaudeQuotaSummary?
-    public let claudeErrorMessage: String?
+    public let snapshot: QuotaSnapshot
     public let pausedAccountID: String?
+
+    public init(snapshot: QuotaSnapshot, pausedAccountID: String?) {
+        self.snapshot = snapshot
+        self.pausedAccountID = pausedAccountID
+    }
 }
 
 public actor PauseWorker {
-    private let client: any OpenCodexServing
+    private let loader: any QuotaSnapshotLoading
+    private let pauser: any OpenCodexPausing
     private let targetAlias: String
     private let thresholdPercent: Double
     private var inFlightRefresh: Task<WorkerRefresh, Error>?
 
-    public init(client: any OpenCodexServing, targetAlias: String, thresholdPercent: Double) {
-        self.client = client
+    public init(
+        loader: any QuotaSnapshotLoading,
+        pauser: any OpenCodexPausing,
+        targetAlias: String,
+        thresholdPercent: Double
+    ) {
+        self.loader = loader
+        self.pauser = pauser
         self.targetAlias = targetAlias
         self.thresholdPercent = thresholdPercent
     }
@@ -20,27 +30,24 @@ public actor PauseWorker {
     public func refresh() async throws -> WorkerRefresh {
         if let inFlightRefresh { return try await inFlightRefresh.value }
 
-        let task = Task { [client, targetAlias, thresholdPercent] in
-            async let claudeRefresh = fetchClaudeSummary(client: client)
-            let accounts = try await client.fetchAccounts()
-            let codexSummary = try QuotaCalculator.summarize(
-                accounts: accounts,
-                targetAlias: targetAlias,
-                thresholdPercent: thresholdPercent
-            )
-            let target = accounts.first { $0.alias == targetAlias }!
+        let task = Task { [loader, pauser, targetAlias, thresholdPercent] in
+            let load = await loader.load()
             let pausedAccountID: String?
-            if !target.paused, let used = target.weeklyUsedPercent, used >= thresholdPercent {
-                try await client.pauseAccount(id: target.id)
-                pausedAccountID = target.id
+            if let accounts = load.codexAccounts {
+                let target = try targetAccount(alias: targetAlias, in: accounts)
+                if !target.paused,
+                   let used = target.weeklyUsedPercent,
+                   used >= thresholdPercent {
+                    try await pauser.pauseAccount(id: target.id)
+                    pausedAccountID = target.id
+                } else {
+                    pausedAccountID = nil
+                }
             } else {
                 pausedAccountID = nil
             }
-            let claude = await claudeRefresh
             return WorkerRefresh(
-                codexSummary: codexSummary,
-                claudeSummary: claude.summary,
-                claudeErrorMessage: claude.errorMessage,
+                snapshot: load.snapshot,
                 pausedAccountID: pausedAccountID
             )
         }
@@ -56,19 +63,12 @@ public actor PauseWorker {
     }
 }
 
-private struct ClaudeRefreshResult: Sendable {
-    let summary: ClaudeQuotaSummary?
-    let errorMessage: String?
-}
-
-private func fetchClaudeSummary(client: any OpenCodexServing) async -> ClaudeRefreshResult {
-    do {
-        let accounts = try await client.fetchClaudeAccounts()
-        return ClaudeRefreshResult(
-            summary: ClaudeQuotaCalculator.summarize(accounts: accounts),
-            errorMessage: nil
-        )
-    } catch {
-        return ClaudeRefreshResult(summary: nil, errorMessage: error.localizedDescription)
-    }
+private func targetAccount(
+    alias: String,
+    in accounts: [OpenCodexAccount]
+) throws -> OpenCodexAccount {
+    let matches = accounts.filter { $0.alias == alias }
+    guard !matches.isEmpty else { throw QuotaError.targetAliasNotFound(alias) }
+    guard matches.count == 1 else { throw QuotaError.duplicateTargetAlias(alias) }
+    return matches[0]
 }
