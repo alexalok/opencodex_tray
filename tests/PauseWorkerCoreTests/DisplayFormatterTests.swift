@@ -36,4 +36,25 @@ final class DisplayFormatterTests: XCTestCase {
         XCTAssertEqual(DisplayFormatter.claudeRow(row), "work: 50.25%/20%")
         XCTAssertEqual(DisplayFormatter.claudeRow(partialRow), "personal: —/20%")
     }
+
+    func testFormatsWidgetValuesWithoutLabelsAndKeepsUnknownAsDash() {
+        XCTAssertEqual(DisplayFormatter.codexAllowance(AccountAllowance(
+            accountId: "codex-a",
+            label: "main",
+            remainingPercent: 68,
+            totalPercent: 100
+        )), "68% / 100%")
+        XCTAssertEqual(DisplayFormatter.codexAllowance(AccountAllowance(
+            accountId: "codex-b",
+            label: "workmate",
+            remainingPercent: nil,
+            totalPercent: 17.5
+        )), "— / 17.5%")
+        XCTAssertEqual(DisplayFormatter.claudeAllowance(ClaudeAccountAllowance(
+            accountId: "claude-a",
+            label: "work",
+            fiveHourRemainingPercent: 97,
+            weeklyRemainingPercent: 88
+        )), "97% / 88%")
+    }
 }

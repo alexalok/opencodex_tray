@@ -175,7 +175,20 @@ private enum ProviderIconStore {
         let executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
             .standardizedFileURL
             .deletingLastPathComponent()
-        return Bundle(url: executableURL.appendingPathComponent("\(bundleName).bundle"))
+        if let bundle = Bundle(
+            url: executableURL.appendingPathComponent("\(bundleName).bundle")
+        ) {
+            return bundle
+        }
+
+        let names = ["ProviderIcon-claude", "ProviderIcon-codex"]
+        if names.allSatisfy({
+            Bundle.main.url(forResource: $0, withExtension: "svg") != nil
+        }) {
+            return Bundle.main
+        }
+
+        return nil
     }()
 
     static func cgImage(named name: String) -> CGImage? {

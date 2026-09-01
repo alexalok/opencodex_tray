@@ -4,15 +4,7 @@ import WidgetKit
 private struct OpenCodexQuotaWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "OpenCodexQuota", provider: QuotaWidgetTimelineProvider()) { entry in
-            Group {
-                switch entry.content {
-                case .snapshot:
-                    Text("OpenCodex Quota")
-                case .unavailable:
-                    Text("Unable to load")
-                }
-            }
-                .containerBackground(for: .widget) { Color.clear }
+            QuotaWidgetView(entry: entry)
         }
         .configurationDisplayName("OpenCodex Quota")
         .description("Codex and Claude quota remaining.")

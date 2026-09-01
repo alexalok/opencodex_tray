@@ -57,6 +57,65 @@ func makeCompleteLoad() -> QuotaSnapshotLoad {
     QuotaSnapshotLoad(snapshot: makeCompleteSnapshot(), codexAccounts: [])
 }
 
+func makeThreeAccountSnapshot() -> QuotaSnapshot {
+    let codexRows = [
+        AccountAllowance(
+            accountId: "codex-main",
+            label: "main",
+            remainingPercent: 68,
+            totalPercent: 100
+        ),
+        AccountAllowance(
+            accountId: "codex-work",
+            label: "workmate",
+            remainingPercent: 16,
+            totalPercent: 17.5
+        ),
+        AccountAllowance(
+            accountId: "codex-third",
+            label: "third",
+            remainingPercent: 10,
+            totalPercent: 25
+        ),
+    ]
+    let claudeRows = [
+        ClaudeAccountAllowance(
+            accountId: "claude-work",
+            label: "work",
+            fiveHourRemainingPercent: 97,
+            weeklyRemainingPercent: 88
+        ),
+        ClaudeAccountAllowance(
+            accountId: "claude-personal",
+            label: "personal",
+            fiveHourRemainingPercent: 94,
+            weeklyRemainingPercent: 88
+        ),
+        ClaudeAccountAllowance(
+            accountId: "claude-third",
+            label: "third",
+            fiveHourRemainingPercent: 90,
+            weeklyRemainingPercent: 80
+        ),
+    ]
+    return makeSnapshot(
+        codex: QuotaSummary(trayPercentage: 94, rows: codexRows),
+        claude: ClaudeQuotaSummary(
+            fiveHourRemainingPercentage: 281,
+            weeklyRemainingPercentage: 256,
+            rows: claudeRows
+        )
+    )
+}
+
+func makeCodexOnlySnapshot() -> QuotaSnapshot {
+    makeSnapshot(
+        codex: makeCodexSummary(),
+        claude: nil,
+        claudeError: "Claude unavailable"
+    )
+}
+
 actor FakeSnapshotLoader: QuotaSnapshotLoading {
     let result: QuotaSnapshotLoad
 
