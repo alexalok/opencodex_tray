@@ -19,6 +19,14 @@ public enum DisplayFormatter {
         "\(allowance.label): \(percentage(allowance.fiveHourRemainingPercent))/\(percentage(allowance.weeklyRemainingPercent))"
     }
 
+    public static func codexAllowance(_ allowance: AccountAllowance) -> String {
+        "\(percentage(allowance.remainingPercent)) / \(percentage(allowance.totalPercent))"
+    }
+
+    public static func claudeAllowance(_ allowance: ClaudeAccountAllowance) -> String {
+        "\(percentage(allowance.fiveHourRemainingPercent)) / \(percentage(allowance.weeklyRemainingPercent))"
+    }
+
     private static func percentage(_ value: Int?) -> String {
         value.map { "\($0)%" } ?? "—"
     }

@@ -4,9 +4,9 @@
 
 # OpenCodex Quota Tray
 
-Native macOS 14+ menu-bar app. Polls OpenCodex, pauses one exact Codex account
-alias at its configured weekly threshold, and shows Codex and Claude pool
-allowances.
+Native macOS 14+ menu-bar app and Notification Center widget. Polls OpenCodex,
+pauses one exact Codex account alias at its configured weekly threshold, and
+shows Codex and Claude pool allowances.
 
 [OpenCodex](https://github.com/lidge-jun/opencodex) is a local proxy that
 multiplexes several Codex and Claude accounts behind one endpoint and tracks
@@ -87,6 +87,20 @@ Alias matching is exact and case-sensitive. Missing or duplicate target alias
 fails closed: no pause request is sent. Admin token is read once from
 `${OPENCODEX_HOME:-$HOME/.opencodex}/admin-api-token`.
 
+## Notification Center widget
+
+Install and open the signed app once so macOS discovers `OpenCodex Quota` and
+the tray copies its validated read-only connection settings into the shared App
+Group. Add the widget from Notification Center's gallery in small or medium
+size. It requests fresh Codex and Claude quota every 30 minutes and works while
+the tray app is stopped; macOS may defer refreshes.
+
+The shared connection file is atomic, owner-only (`0600`), and available only
+to app components signed for `KTNPDHXXV3.opencodex.quota-tray.shared`. Relaunch
+the tray after changing its config or admin token so the widget receives the
+new settings. Custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work because
+only the tray reads those source files.
+
 ## Develop
 
 ```bash
@@ -108,6 +122,10 @@ Local builds use an ad-hoc signature and do not contact Apple:
 ./scripts/build-app.sh
 open dist/OpenCodexTray.app
 ```
+
+Ad-hoc builds verify compilation and resources, but live App Group sharing
+requires both bundles to use the matching Team-ID signature. The trusted build
+below supplies that signature.
 
 Trusted direct distribution requires the local Developer ID identity and a
 one-time Notary service Keychain profile:

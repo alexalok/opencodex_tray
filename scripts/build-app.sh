@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT="${0:A:h:h}"
 APP="$ROOT/dist/OpenCodexTray.app"
 ARCHIVE="$ROOT/dist/OpenCodexTray.zip"
+DERIVED_DATA="$ROOT/.build/xcode-derived-data"
+PRODUCT_APP="$DERIVED_DATA/Build/Products/Release/OpenCodexTray.app"
+WIDGET="$APP/Contents/PlugIns/OpenCodexWidget.appex"
+APP_ENTITLEMENTS="$ROOT/Resources/OpenCodexTray.entitlements"
+WIDGET_ENTITLEMENTS="$ROOT/Resources/OpenCodexWidget.entitlements"
 
 typeset -r REQUESTED_NOTARIZE="${NOTARIZE-0}"
 typeset -r SIGNING_IDENTITY_WAS_SET="${+SIGNING_IDENTITY}"
@@ -58,23 +63,26 @@ if [[ "$NOTARIZE" == "1" ]]; then
   : "${NOTARY_PROFILE:?NOTARY_PROFILE is required when NOTARIZE=1}"
 fi
 
-rm -rf "$APP"
-swift build --package-path "$ROOT" -c release --product OpenCodexTray
-BIN_DIR="$(swift build --package-path "$ROOT" -c release --show-bin-path)"
+rm -rf "$APP" "$DERIVED_DATA"
+mkdir -p "$ROOT/dist"
+xcodebuild \
+  -project "$ROOT/OpenCodexTray.xcodeproj" \
+  -scheme OpenCodexTray \
+  -configuration Release \
+  -destination "platform=macOS" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+cp -R "$PRODUCT_APP" "$APP"
 
-mkdir -p "$APP/Contents/MacOS"
-install -m 755 "$BIN_DIR/OpenCodexTray" "$APP/Contents/MacOS/OpenCodexTray"
-install -m 644 "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
-mkdir -p "$APP/Contents/Resources"
-install -m 644 "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-RESOURCE_BUNDLE="$BIN_DIR/OpenCodexPauseWorker_OpenCodexTray.bundle"
-if [[ -d "$RESOURCE_BUNDLE" ]]; then
-  mkdir -p "$APP/Contents/Resources"
-  rm -rf "$APP/Contents/Resources/${RESOURCE_BUNDLE:t}"
-  cp -R "$RESOURCE_BUNDLE" "$APP/Contents/Resources/"
-fi
 if [[ "$NOTARIZE" == "1" ]]; then
-  codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$WIDGET_ENTITLEMENTS" \
+    --sign "$SIGNING_IDENTITY" "$WIDGET"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$APP_ENTITLEMENTS" \
+    --sign "$SIGNING_IDENTITY" "$APP"
   codesign --verify --deep --strict --verbose=4 "$APP"
 
   ditto -c -k --sequesterRsrc --keepParent "$APP" "$ARCHIVE"
@@ -101,7 +109,9 @@ if [[ "$NOTARIZE" == "1" ]]; then
 
   print -- "$ARCHIVE"
 else
-  codesign --force --sign - "$APP"
+  codesign --force --sign - --entitlements "$WIDGET_ENTITLEMENTS" "$WIDGET"
+  codesign --force --sign - --entitlements "$APP_ENTITLEMENTS" "$APP"
+  codesign --verify --deep --strict --verbose=4 "$APP"
 fi
 
 echo "$APP"

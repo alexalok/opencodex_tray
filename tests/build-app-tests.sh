@@ -28,28 +28,73 @@ assert_not_contains() {
   [[ "$haystack" != *"$needle"* ]] || fail "expected command log not to contain: $needle"
 }
 
+assert_before() {
+  local first="$1"
+  local second="$2"
+  local first_line="$(grep -nF -- "$first" "$TEST_ROOT/commands.log" | head -1 | cut -d: -f1)"
+  local second_line="$(grep -nF -- "$second" "$TEST_ROOT/commands.log" | head -1 | cut -d: -f1)"
+  [[ -n "$first_line" ]] || fail "missing earlier command: $first"
+  [[ -n "$second_line" ]] || fail "missing later command: $second"
+  (( first_line < second_line )) || fail "command order invalid: $first must precede $second"
+}
+
 make_fixture() {
   cleanup
   TEST_ROOT="$(mktemp -d /tmp/opencodex-build-tests.XXXXXX)"
   TEST_ROOT="${TEST_ROOT:A}"
-  mkdir -p "$TEST_ROOT/scripts" "$TEST_ROOT/Resources" "$TEST_ROOT/fake-bin" "$TEST_ROOT/swift-bin"
+  mkdir -p \
+    "$TEST_ROOT/scripts" \
+    "$TEST_ROOT/Resources" \
+    "$TEST_ROOT/Sources/OpenCodexTray/Resources" \
+    "$TEST_ROOT/fake-bin"
   cp "$PROJECT_ROOT/scripts/build-app.sh" "$TEST_ROOT/scripts/build-app.sh"
-  touch "$TEST_ROOT/Resources/Info.plist" "$TEST_ROOT/Resources/AppIcon.icns"
+  cp -R "$PROJECT_ROOT/OpenCodexTray.xcodeproj" "$TEST_ROOT/OpenCodexTray.xcodeproj"
+  cp "$PROJECT_ROOT/Resources/Info.plist" "$TEST_ROOT/Resources/Info.plist"
+  cp "$PROJECT_ROOT/Resources/OpenCodexWidget-Info.plist" "$TEST_ROOT/Resources/OpenCodexWidget-Info.plist"
+  cp "$PROJECT_ROOT/Resources/OpenCodexTray.entitlements" "$TEST_ROOT/Resources/OpenCodexTray.entitlements"
+  cp "$PROJECT_ROOT/Resources/OpenCodexWidget.entitlements" "$TEST_ROOT/Resources/OpenCodexWidget.entitlements"
+  cp "$PROJECT_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-claude.svg" "$TEST_ROOT/Sources/OpenCodexTray/Resources/"
+  cp "$PROJECT_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-codex.svg" "$TEST_ROOT/Sources/OpenCodexTray/Resources/"
+  cp "$PROJECT_ROOT/Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt" "$TEST_ROOT/Sources/OpenCodexTray/Resources/"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier local.opencodex.quota-tray.widget" "$TEST_ROOT/Resources/OpenCodexWidget-Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable OpenCodexWidget" "$TEST_ROOT/Resources/OpenCodexWidget-Info.plist"
 
-  cat > "$TEST_ROOT/fake-bin/swift" <<'EOF'
+  cat > "$TEST_ROOT/fake-bin/xcodebuild" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
-print -r -- "swift|$*" >> "$COMMAND_LOG"
-mkdir -p "$FAKE_SWIFT_BIN/OpenCodexPauseWorker_OpenCodexTray.bundle"
-touch "$FAKE_SWIFT_BIN/OpenCodexPauseWorker_OpenCodexTray.bundle/ProviderIcon.svg"
-touch "$FAKE_SWIFT_BIN/OpenCodexTray"
-chmod 755 "$FAKE_SWIFT_BIN/OpenCodexTray"
-if [[ " $* " == *" --show-bin-path "* ]]; then
-  print -r -- "$FAKE_SWIFT_BIN"
-fi
-if [[ "${FAKE_SWIFT_FAIL:-0}" == "1" ]]; then
+print -r -- "xcodebuild|$*" >> "$COMMAND_LOG"
+if [[ "${FAKE_XCODEBUILD_FAIL:-0}" == "1" ]]; then
   exit 42
 fi
+
+derived_data=""
+while (( $# > 0 )); do
+  if [[ "$1" == "-derivedDataPath" ]]; then
+    shift
+    derived_data="$1"
+    break
+  fi
+  shift
+done
+[[ -n "$derived_data" ]] || exit 64
+
+app="$derived_data/Build/Products/Release/OpenCodexTray.app"
+widget="$app/Contents/PlugIns/OpenCodexWidget.appex"
+mkdir -p \
+  "$app/Contents/MacOS" \
+  "$app/Contents/Resources" \
+  "$widget/Contents/MacOS" \
+  "$widget/Contents/Resources"
+touch "$app/Contents/MacOS/OpenCodexTray" "$widget/Contents/MacOS/OpenCodexWidget"
+chmod 755 "$app/Contents/MacOS/OpenCodexTray" "$widget/Contents/MacOS/OpenCodexWidget"
+cp "$FIXTURE_ROOT/Resources/Info.plist" "$app/Contents/Info.plist"
+cp "$FIXTURE_ROOT/Resources/OpenCodexWidget-Info.plist" "$widget/Contents/Info.plist"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-claude.svg" "$app/Contents/Resources/"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-codex.svg" "$app/Contents/Resources/"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt" "$app/Contents/Resources/"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-claude.svg" "$widget/Contents/Resources/"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-codex.svg" "$widget/Contents/Resources/"
+cp "$FIXTURE_ROOT/Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt" "$widget/Contents/Resources/"
 EOF
 
   cat > "$TEST_ROOT/fake-bin/codesign" <<'EOF'
@@ -95,7 +140,7 @@ run_build() {
   env \
     PATH="$TEST_ROOT/fake-bin:/usr/bin:/bin:/usr/sbin:/sbin" \
     COMMAND_LOG="$TEST_ROOT/commands.log" \
-    FAKE_SWIFT_BIN="$TEST_ROOT/swift-bin" \
+    FIXTURE_ROOT="$TEST_ROOT" \
     "$@" \
     zsh "$TEST_ROOT/scripts/build-app.sh" > "$TEST_ROOT/stdout.log" 2> "$TEST_ROOT/stderr.log"
 }
@@ -105,7 +150,14 @@ test_local_build_stays_adhoc_and_offline() {
   run_build
 
   local command_log="$(<"$TEST_ROOT/commands.log")"
-  assert_contains "$command_log" "codesign|--force --sign - $TEST_ROOT/dist/OpenCodexTray.app"
+  local widget="$TEST_ROOT/dist/OpenCodexTray.app/Contents/PlugIns/OpenCodexWidget.appex"
+  local widget_sign="codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexWidget.entitlements $widget"
+  local app_sign="codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements $TEST_ROOT/dist/OpenCodexTray.app"
+  assert_contains "$command_log" "xcodebuild|-project $TEST_ROOT/OpenCodexTray.xcodeproj"
+  assert_contains "$command_log" "-disableAutomaticPackageResolution"
+  assert_contains "$command_log" "$widget_sign"
+  assert_contains "$command_log" "$app_sign"
+  assert_before "$widget_sign" "$app_sign"
   assert_not_contains "$command_log" "notarytool"
   assert_not_contains "$command_log" "stapler"
   [[ -d "$TEST_ROOT/dist/OpenCodexTray.app" ]] || fail "local build did not create app bundle"
@@ -144,8 +196,8 @@ test_release_build_removes_stale_archive_on_early_failure() {
     NOTARIZE=1 \
     SIGNING_IDENTITY='Developer ID Application: Example Developer (ABCDE12345)' \
     NOTARY_PROFILE=macos-notarization \
-    FAKE_SWIFT_FAIL=1 || build_exit=$?
-  [[ "$build_exit" != "0" ]] || fail "release build succeeded when Swift build failed"
+    FAKE_XCODEBUILD_FAIL=1 || build_exit=$?
+  [[ "$build_exit" != "0" ]] || fail "release build succeeded when Xcode build failed"
   [[ ! -e "$TEST_ROOT/dist/OpenCodexTray.zip" ]] || fail "early release failure left stale ZIP"
 }
 
@@ -161,7 +213,7 @@ EOF
   run_build
 
   local command_log="$(<"$TEST_ROOT/commands.log")"
-  assert_contains "$command_log" "codesign|--force --sign - $TEST_ROOT/dist/OpenCodexTray.app"
+  assert_contains "$command_log" "codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements $TEST_ROOT/dist/OpenCodexTray.app"
   assert_not_contains "$command_log" "notarytool"
 }
 
@@ -249,9 +301,14 @@ EOF
   local command_log="$(<"$TEST_ROOT/commands.log")"
   local identity="Developer ID Application: Example Developer (ABCDE12345)"
   local app="$TEST_ROOT/dist/OpenCodexTray.app"
+  local widget="$app/Contents/PlugIns/OpenCodexWidget.appex"
   local archive="$TEST_ROOT/dist/OpenCodexTray.zip"
+  local widget_sign="codesign|--force --options runtime --timestamp --entitlements $TEST_ROOT/Resources/OpenCodexWidget.entitlements --sign $identity $widget"
+  local app_sign="codesign|--force --options runtime --timestamp --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements --sign $identity $app"
 
-  assert_contains "$command_log" "codesign|--force --options runtime --timestamp --sign $identity $app"
+  assert_contains "$command_log" "$widget_sign"
+  assert_contains "$command_log" "$app_sign"
+  assert_before "$widget_sign" "$app_sign"
   assert_contains "$command_log" "codesign|--verify --deep --strict --verbose=4 $app"
   assert_contains "$command_log" "xcrun|notarytool submit $archive --keychain-profile macos-notarization --wait --timeout 30m --output-format json"
   assert_contains "$command_log" "xcrun|stapler staple $app"

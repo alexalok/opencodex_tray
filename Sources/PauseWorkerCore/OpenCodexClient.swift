@@ -1,17 +1,85 @@
 import Foundation
 
-public protocol OpenCodexServing: Sendable {
+public protocol OpenCodexQuotaServing: Sendable {
     func fetchAccounts() async throws -> [OpenCodexAccount]
     func fetchClaudeAccounts() async throws -> [ClaudeAccount]
+}
+
+public protocol OpenCodexPausing: Sendable {
     func pauseAccount(id: String) async throws
 }
 
-public actor OpenCodexClient: OpenCodexServing {
+public actor OpenCodexQuotaClient: OpenCodexQuotaServing {
+    private let transport: OpenCodexTransport
+
+    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil) {
+        transport = OpenCodexTransport(
+            baseURL: baseURL,
+            adminToken: adminToken,
+            timeout: timeout,
+            session: session
+        )
+    }
+
+    public func fetchAccounts() async throws -> [OpenCodexAccount] {
+        let data = try await transport.send(
+            path: "/api/codex-auth/accounts?refresh=1",
+            method: "GET",
+            operation: "accounts"
+        )
+        do {
+            return try OpenCodexResponseDecoder.decodeAccounts(data)
+        } catch {
+            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid account response")
+        }
+    }
+
+    public func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
+        let data = try await transport.send(
+            path: "/api/oauth/accounts?provider=anthropic&quota=1&refresh=1",
+            method: "GET",
+            operation: "Claude accounts"
+        )
+        do {
+            return try OpenCodexResponseDecoder.decodeClaudeAccounts(data)
+        } catch {
+            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid Claude account response")
+        }
+    }
+}
+
+public actor OpenCodexPauseClient: OpenCodexPausing {
+    private let transport: OpenCodexTransport
+
+    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil) {
+        transport = OpenCodexTransport(
+            baseURL: baseURL,
+            adminToken: adminToken,
+            timeout: timeout,
+            session: session
+        )
+    }
+
+    public func pauseAccount(id: String) async throws {
+        let data = try await transport.send(
+            path: "/api/codex-auth/accounts/pause",
+            method: "PUT",
+            operation: "pause",
+            body: try JSONEncoder().encode(PauseRequest(id: id, paused: true))
+        )
+        guard let response = try? JSONDecoder().decode(PauseResponse.self, from: data),
+              response.ok, response.id == id, response.paused else {
+            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid pause response")
+        }
+    }
+}
+
+private struct OpenCodexTransport: Sendable {
     private let baseURL: URL
     private let adminToken: String
     private let session: URLSession
 
-    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil) {
+    init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession?) {
         self.baseURL = baseURL
         self.adminToken = adminToken
         if let session {
@@ -23,50 +91,20 @@ public actor OpenCodexClient: OpenCodexServing {
         }
     }
 
-    public func fetchAccounts() async throws -> [OpenCodexAccount] {
-        var request = URLRequest(url: endpoint("/api/codex-auth/accounts?refresh=1"))
-        request.httpMethod = "GET"
+    func send(
+        path: String,
+        method: String,
+        operation: String,
+        body: Data? = nil
+    ) async throws -> Data {
+        var request = URLRequest(url: endpoint(path))
+        request.httpMethod = method
         request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let data = try await send(request, operation: "accounts")
-        do {
-            return try OpenCodexResponseDecoder.decodeAccounts(data)
-        } catch {
-            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid account response")
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
         }
-    }
-
-    public func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
-        var request = URLRequest(url: endpoint("/api/oauth/accounts?provider=anthropic&quota=1&refresh=1"))
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let data = try await send(request, operation: "Claude accounts")
-        do {
-            return try OpenCodexResponseDecoder.decodeClaudeAccounts(data)
-        } catch {
-            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid Claude account response")
-        }
-    }
-
-    public func pauseAccount(id: String) async throws {
-        var request = URLRequest(url: endpoint("/api/codex-auth/accounts/pause"))
-        request.httpMethod = "PUT"
-        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(PauseRequest(id: id, paused: true))
-        let data = try await send(request, operation: "pause")
-        guard let response = try? JSONDecoder().decode(PauseResponse.self, from: data),
-              response.ok, response.id == id, response.paused else {
-            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid pause response")
-        }
-    }
-
-    private func endpoint(_ path: String) -> URL {
-        URL(string: path, relativeTo: baseURL)!.absoluteURL
-    }
-
-    private func send(_ request: URLRequest, operation: String) async throws -> Data {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
@@ -81,6 +119,10 @@ public actor OpenCodexClient: OpenCodexServing {
         } catch {
             throw OpenCodexClientError.network("OpenCodex request failed")
         }
+    }
+
+    private func endpoint(_ path: String) -> URL {
+        URL(string: path, relativeTo: baseURL)!.absoluteURL
     }
 }
 
