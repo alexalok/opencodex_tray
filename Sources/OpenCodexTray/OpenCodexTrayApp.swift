@@ -1,8 +1,10 @@
 import AppKit
 import Darwin
+import OSLog
 import PauseWorkerCore
 import ServiceManagement
 import SwiftUI
+import WidgetKit
 
 @main
 struct OpenCodexTrayApp: App {
@@ -211,6 +213,11 @@ private enum ProviderIconStore {
 
 @MainActor
 final class TrayViewModel: ObservableObject {
+    private static let logger = Logger(
+        subsystem: "local.opencodex.quota-tray",
+        category: "widget-configuration"
+    )
+
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
     @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
@@ -251,6 +258,21 @@ final class TrayViewModel: ObservableObject {
         do {
             let config = try WorkerConfiguration.load(environment: ProcessInfo.processInfo.environment)
             let token = try AdminTokenReader.read(path: config.adminTokenPath)
+            do {
+                let widgetConfiguration = WidgetConnectionConfiguration(
+                    baseURL: config.baseURL,
+                    adminToken: token,
+                    targetAlias: config.targetAlias,
+                    thresholdPercent: config.thresholdPercent,
+                    requestTimeout: config.requestTimeout
+                )
+                try WidgetConfigurationStore.shared().save(widgetConfiguration)
+                WidgetCenter.shared.reloadAllTimelines()
+            } catch {
+                Self.logger.error(
+                    "Failed to sync widget configuration: \(error.localizedDescription, privacy: .public)"
+                )
+            }
             let quotaClient = OpenCodexQuotaClient(
                 baseURL: config.baseURL,
                 adminToken: token,

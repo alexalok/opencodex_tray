@@ -1,6 +1,10 @@
 .build/
+.swiftpm/
 dist/
 .DS_Store
 .env
 .vscode/
 .worktrees/
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+*.xcuserstate

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import PauseWorkerCore
 import WidgetKit
 
@@ -14,6 +15,11 @@ struct QuotaWidgetTimelineResult: Equatable {
 }
 
 struct QuotaWidgetTimelineService {
+    private static let logger = Logger(
+        subsystem: "local.opencodex.quota-tray.widget",
+        category: "timeline"
+    )
+
     let makeLoader: @Sendable () throws -> any QuotaSnapshotLoading
     let cache: any WidgetSnapshotCaching
     let now: @Sendable () -> Date
@@ -27,7 +33,16 @@ struct QuotaWidgetTimelineService {
             let loader = try makeLoader()
             load = await loader.load()
         } catch {
+            Self.logger.error(
+                "Failed to create quota loader: \(error.localizedDescription, privacy: .public)"
+            )
             load = nil
+        }
+
+        if let snapshot = load?.snapshot, !snapshot.hasProviderData {
+            Self.logger.error(
+                "Quota fetch failed. Codex: \(snapshot.codexErrorMessage ?? "none", privacy: .public); Claude: \(snapshot.claudeErrorMessage ?? "none", privacy: .public)"
+            )
         }
 
         let resolution = QuotaWidgetStateResolver.resolve(load: load, cached: cached)
@@ -143,13 +158,10 @@ struct QuotaWidgetTimelineProvider: TimelineProvider {
     }
 
     private static func makeProductionLoader() throws -> any QuotaSnapshotLoading {
-        let config = try WorkerConfiguration.load(
-            environment: ProcessInfo.processInfo.environment
-        )
-        let token = try AdminTokenReader.read(path: config.adminTokenPath)
+        let config = try WidgetConfigurationStore.shared().load()
         let client = OpenCodexQuotaClient(
             baseURL: config.baseURL,
-            adminToken: token,
+            adminToken: config.adminToken,
             timeout: config.requestTimeout
         )
         return QuotaSnapshotLoader(

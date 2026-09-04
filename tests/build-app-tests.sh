@@ -51,6 +51,7 @@ make_fixture() {
   cp -R "$PROJECT_ROOT/OpenCodexTray.xcodeproj" "$TEST_ROOT/OpenCodexTray.xcodeproj"
   cp "$PROJECT_ROOT/Resources/Info.plist" "$TEST_ROOT/Resources/Info.plist"
   cp "$PROJECT_ROOT/Resources/OpenCodexWidget-Info.plist" "$TEST_ROOT/Resources/OpenCodexWidget-Info.plist"
+  cp "$PROJECT_ROOT/Resources/OpenCodexTray.entitlements" "$TEST_ROOT/Resources/OpenCodexTray.entitlements"
   cp "$PROJECT_ROOT/Resources/OpenCodexWidget.entitlements" "$TEST_ROOT/Resources/OpenCodexWidget.entitlements"
   cp "$PROJECT_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-claude.svg" "$TEST_ROOT/Sources/OpenCodexTray/Resources/"
   cp "$PROJECT_ROOT/Sources/OpenCodexTray/Resources/ProviderIcon-codex.svg" "$TEST_ROOT/Sources/OpenCodexTray/Resources/"
@@ -151,7 +152,7 @@ test_local_build_stays_adhoc_and_offline() {
   local command_log="$(<"$TEST_ROOT/commands.log")"
   local widget="$TEST_ROOT/dist/OpenCodexTray.app/Contents/PlugIns/OpenCodexWidget.appex"
   local widget_sign="codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexWidget.entitlements $widget"
-  local app_sign="codesign|--force --sign - $TEST_ROOT/dist/OpenCodexTray.app"
+  local app_sign="codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements $TEST_ROOT/dist/OpenCodexTray.app"
   assert_contains "$command_log" "xcodebuild|-project $TEST_ROOT/OpenCodexTray.xcodeproj"
   assert_contains "$command_log" "-disableAutomaticPackageResolution"
   assert_contains "$command_log" "$widget_sign"
@@ -212,7 +213,7 @@ EOF
   run_build
 
   local command_log="$(<"$TEST_ROOT/commands.log")"
-  assert_contains "$command_log" "codesign|--force --sign - $TEST_ROOT/dist/OpenCodexTray.app"
+  assert_contains "$command_log" "codesign|--force --sign - --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements $TEST_ROOT/dist/OpenCodexTray.app"
   assert_not_contains "$command_log" "notarytool"
 }
 
@@ -303,7 +304,7 @@ EOF
   local widget="$app/Contents/PlugIns/OpenCodexWidget.appex"
   local archive="$TEST_ROOT/dist/OpenCodexTray.zip"
   local widget_sign="codesign|--force --options runtime --timestamp --entitlements $TEST_ROOT/Resources/OpenCodexWidget.entitlements --sign $identity $widget"
-  local app_sign="codesign|--force --options runtime --timestamp --sign $identity $app"
+  local app_sign="codesign|--force --options runtime --timestamp --entitlements $TEST_ROOT/Resources/OpenCodexTray.entitlements --sign $identity $app"
 
   assert_contains "$command_log" "$widget_sign"
   assert_contains "$command_log" "$app_sign"

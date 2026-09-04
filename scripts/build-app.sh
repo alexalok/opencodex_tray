@@ -7,6 +7,7 @@ ARCHIVE="$ROOT/dist/OpenCodexTray.zip"
 DERIVED_DATA="$ROOT/.build/xcode-derived-data"
 PRODUCT_APP="$DERIVED_DATA/Build/Products/Release/OpenCodexTray.app"
 WIDGET="$APP/Contents/PlugIns/OpenCodexWidget.appex"
+APP_ENTITLEMENTS="$ROOT/Resources/OpenCodexTray.entitlements"
 WIDGET_ENTITLEMENTS="$ROOT/Resources/OpenCodexWidget.entitlements"
 
 typeset -r REQUESTED_NOTARIZE="${NOTARIZE-0}"
@@ -80,6 +81,7 @@ if [[ "$NOTARIZE" == "1" ]]; then
     --entitlements "$WIDGET_ENTITLEMENTS" \
     --sign "$SIGNING_IDENTITY" "$WIDGET"
   codesign --force --options runtime --timestamp \
+    --entitlements "$APP_ENTITLEMENTS" \
     --sign "$SIGNING_IDENTITY" "$APP"
   codesign --verify --deep --strict --verbose=4 "$APP"
 
@@ -108,7 +110,7 @@ if [[ "$NOTARIZE" == "1" ]]; then
   print -- "$ARCHIVE"
 else
   codesign --force --sign - --entitlements "$WIDGET_ENTITLEMENTS" "$WIDGET"
-  codesign --force --sign - "$APP"
+  codesign --force --sign - --entitlements "$APP_ENTITLEMENTS" "$APP"
   codesign --verify --deep --strict --verbose=4 "$APP"
 fi
 

@@ -89,15 +89,17 @@ fails closed: no pause request is sent. Admin token is read once from
 
 ## Notification Center widget
 
-Build and open `dist/OpenCodexTray.app` once so macOS discovers `OpenCodex Quota`.
-Add it from Notification Center's widget gallery in small or medium size. The
-widget requests fresh Codex and Claude quota every 30 minutes and works while
+Install and open the signed app once so macOS discovers `OpenCodex Quota` and
+the tray copies its validated read-only connection settings into the shared App
+Group. Add the widget from Notification Center's gallery in small or medium
+size. It requests fresh Codex and Claude quota every 30 minutes and works while
 the tray app is stopped; macOS may defer refreshes.
 
-The widget reads only the default `~/.config/opencodex-quota-tray/config.json`
-and `~/.opencodex/admin-api-token` paths. Custom `XDG_CONFIG_HOME` or
-`OPENCODEX_HOME` paths continue working in the tray but are unavailable to the
-sandboxed widget.
+The shared connection file is atomic, owner-only (`0600`), and available only
+to app components signed for `KTNPDHXXV3.opencodex.quota-tray.shared`. Relaunch
+the tray after changing its config or admin token so the widget receives the
+new settings. Custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work because
+only the tray reads those source files.
 
 ## Develop
 
@@ -120,6 +122,10 @@ Local builds use an ad-hoc signature and do not contact Apple:
 ./scripts/build-app.sh
 open dist/OpenCodexTray.app
 ```
+
+Ad-hoc builds verify compilation and resources, but live App Group sharing
+requires both bundles to use the matching Team-ID signature. The trusted build
+below supplies that signature.
 
 Trusted direct distribution requires the local Developer ID identity and a
 one-time Notary service Keychain profile:

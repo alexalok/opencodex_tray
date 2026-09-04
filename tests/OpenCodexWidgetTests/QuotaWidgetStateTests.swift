@@ -114,4 +114,113 @@ final class QuotaWidgetStateTests: XCTestCase {
         XCTAssertTrue(model.codex.rows.isEmpty)
         XCTAssertTrue(model.claude.rows.isEmpty)
     }
+
+    func testClaudeAccessibilityNamesBothPeriodsForFullValues() {
+        let model = QuotaWidgetViewModel(
+            content: .snapshot(makeCompleteSnapshot(), stale: false)
+        )
+
+        XCTAssertEqual(
+            model.claude.accessibilityLabel,
+            "Claude, 5-hour remaining: 97 percent; 1-week remaining: 88 percent"
+        )
+        XCTAssertEqual(
+            model.claude.rows.map(\.accessibilityLabel),
+            ["Claude work, 5-hour remaining: 97 percent; 1-week remaining: 88 percent"]
+        )
+        XCTAssertEqual(
+            model.codex.accessibilityLabel,
+            "Codex, remaining: 68 percent"
+        )
+        XCTAssertEqual(
+            model.codex.rows.map(\.accessibilityLabel),
+            ["Codex main, remaining: 68 percent of 100 percent"]
+        )
+    }
+
+    func testClaudeAccessibilitySpeaksUnknownForPartialValues() {
+        let claude = ClaudeQuotaSummary(
+            fiveHourRemainingPercentage: nil,
+            weeklyRemainingPercentage: 150,
+            rows: [
+                ClaudeAccountAllowance(
+                    accountId: "claude-work",
+                    label: "work",
+                    fiveHourRemainingPercent: nil,
+                    weeklyRemainingPercent: 62.5
+                ),
+            ]
+        )
+        let model = QuotaWidgetViewModel(
+            content: .snapshot(
+                makeSnapshot(codex: makeCodexSummary(), claude: claude),
+                stale: false
+            )
+        )
+
+        XCTAssertEqual(
+            model.claude.accessibilityLabel,
+            "Claude, 5-hour remaining: unknown; 1-week remaining: 150 percent"
+        )
+        XCTAssertEqual(
+            model.claude.rows.map(\.accessibilityLabel),
+            ["Claude work, 5-hour remaining: unknown; 1-week remaining: 62.5 percent"]
+        )
+    }
+
+    func testUnavailableClaudeAccessibilityNamesProvider() {
+        let partial = QuotaWidgetViewModel(
+            content: .snapshot(makeCodexOnlySnapshot(), stale: false)
+        )
+        XCTAssertEqual(partial.claude.accessibilityLabel, "Claude, unavailable")
+
+        let unavailable = QuotaWidgetViewModel(content: .unavailable)
+        XCTAssertEqual(unavailable.claude.accessibilityLabel, "Claude, unavailable")
+        XCTAssertEqual(unavailable.codex.accessibilityLabel, "Codex, unavailable")
+    }
+
+    func testUpdatedAgeTextDropsSecondsAndUsesEntryDate() {
+        let entryDate = Date(timeIntervalSince1970: 10_000)
+
+        let age = QuotaWidgetAgeText.make(
+            updatedAt: entryDate.addingTimeInterval(-(5 * 60 + 42)),
+            relativeTo: entryDate
+        )
+
+        XCTAssertEqual(age?.display, "5m ago")
+        XCTAssertEqual(age?.accessibilityLabel, "Updated 5 minutes ago")
+    }
+
+    func testUpdatedAgeTextUsesStableWholeUnits() {
+        let entryDate = Date(timeIntervalSince1970: 1_000_000)
+        let cases: [(TimeInterval, String, String)] = [
+            (30, "now", "Updated now"),
+            (2 * 60, "2m ago", "Updated 2 minutes ago"),
+            (3 * 60 * 60, "3h ago", "Updated 3 hours ago"),
+            (4 * 24 * 60 * 60, "4d ago", "Updated 4 days ago"),
+            (3 * 7 * 24 * 60 * 60, "3w ago", "Updated 3 weeks ago"),
+        ]
+
+        for (elapsed, display, accessibilityLabel) in cases {
+            let age = QuotaWidgetAgeText.make(
+                updatedAt: entryDate.addingTimeInterval(-elapsed),
+                relativeTo: entryDate
+            )
+            XCTAssertEqual(age?.display, display)
+            XCTAssertEqual(age?.accessibilityLabel, accessibilityLabel)
+        }
+    }
+
+    func testUpdatedAgeTextHandlesMissingAndFutureDates() {
+        let entryDate = Date(timeIntervalSince1970: 10_000)
+
+        XCTAssertNil(QuotaWidgetAgeText.make(updatedAt: nil, relativeTo: entryDate))
+        XCTAssertEqual(
+            QuotaWidgetAgeText.make(
+                updatedAt: entryDate.addingTimeInterval(60),
+                relativeTo: entryDate
+            )?.display,
+            "now"
+        )
+    }
 }
