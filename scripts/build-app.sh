@@ -67,7 +67,7 @@ install -m 755 "$BIN_DIR/OpenCodexTray" "$APP/Contents/MacOS/OpenCodexTray"
 install -m 644 "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 install -m 644 "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-RESOURCE_BUNDLE="$BIN_DIR/OpenCodexPauseWorker_OpenCodexTray.bundle"
+RESOURCE_BUNDLE="$BIN_DIR/OpenCodexQuotaTray_OpenCodexTray.bundle"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
   mkdir -p "$APP/Contents/Resources"
   rm -rf "$APP/Contents/Resources/${RESOURCE_BUNDLE:t}"

@@ -1,5 +1,7 @@
 # Notification Center Widget Design
 
+> **Status: Obsolete (2026-09-04).** Superseded by read-only `OpenCodexQuotaCore`. Pause-related architecture and old package/target names below are historical only.
+
 ## Goal
 
 Add native macOS Notification Center widgets for OpenCodex quota visibility. The widget must refresh quota data while the menu bar app is not running, support small and medium families, and remain unable to pause or otherwise mutate OpenCodex accounts.

@@ -1,12 +1,11 @@
 import Foundation
 
-public protocol OpenCodexServing: Sendable {
+public protocol OpenCodexQuotaServing: Sendable {
     func fetchAccounts() async throws -> [OpenCodexAccount]
     func fetchClaudeAccounts() async throws -> [ClaudeAccount]
-    func pauseAccount(id: String) async throws
 }
 
-public actor OpenCodexClient: OpenCodexServing {
+public actor OpenCodexClient: OpenCodexQuotaServing {
     private let baseURL: URL
     private let adminToken: String
     private let session: URLSession
@@ -49,19 +48,6 @@ public actor OpenCodexClient: OpenCodexServing {
         }
     }
 
-    public func pauseAccount(id: String) async throws {
-        var request = URLRequest(url: endpoint("/api/codex-auth/accounts/pause"))
-        request.httpMethod = "PUT"
-        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(PauseRequest(id: id, paused: true))
-        let data = try await send(request, operation: "pause")
-        guard let response = try? JSONDecoder().decode(PauseResponse.self, from: data),
-              response.ok, response.id == id, response.paused else {
-            throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid pause response")
-        }
-    }
-
     private func endpoint(_ path: String) -> URL {
         URL(string: path, relativeTo: baseURL)!.absoluteURL
     }
@@ -92,7 +78,6 @@ public enum OpenCodexResponseDecoder {
                 alias: dto.alias,
                 plan: dto.plan,
                 isMain: dto.isMain ?? false,
-                paused: dto.paused,
                 weeklyUsedPercent: dto.quota?.weeklyPercent
             )
         }
@@ -130,7 +115,6 @@ private struct AccountDTO: Decodable {
     let alias: String?
     let plan: String?
     let isMain: Bool?
-    let paused: Bool
     let quota: QuotaDTO?
 }
 private struct QuotaDTO: Decodable {
@@ -144,5 +128,3 @@ private struct ClaudeAccountDTO: Decodable {
     let email: String?
     let quota: QuotaDTO?
 }
-private struct PauseRequest: Encodable { let id: String; let paused: Bool }
-private struct PauseResponse: Decodable { let ok: Bool; let id: String; let paused: Bool }

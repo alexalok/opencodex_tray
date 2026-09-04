@@ -5,7 +5,6 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let alias: String?
     public let plan: String?
     public let isMain: Bool
-    public let paused: Bool
     public let weeklyUsedPercent: Double?
 
     public init(
@@ -13,14 +12,12 @@ public struct OpenCodexAccount: Equatable, Sendable {
         alias: String?,
         plan: String?,
         isMain: Bool,
-        paused: Bool,
         weeklyUsedPercent: Double?
     ) {
         self.id = id
         self.alias = alias
         self.plan = plan
         self.isMain = isMain
-        self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
     }
 }
@@ -103,36 +100,13 @@ public struct ClaudeQuotaSummary: Equatable, Sendable {
     }
 }
 
-public enum QuotaError: Error, Equatable, LocalizedError, Sendable {
-    case targetAliasNotFound(String)
-    case duplicateTargetAlias(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case let .targetAliasNotFound(alias):
-            "Target account alias \"\(alias)\" was not returned by OpenCodex"
-        case let .duplicateTargetAlias(alias):
-            "Target account alias \"\(alias)\" matched multiple OpenCodex accounts"
-        }
-    }
-}
-
 public enum QuotaCalculator {
-    public static func summarize(
-        accounts: [OpenCodexAccount],
-        targetAlias: String,
-        thresholdPercent: Double
-    ) throws -> QuotaSummary {
-        let targetMatches = accounts.filter { $0.alias == targetAlias }
-        if targetMatches.isEmpty { throw QuotaError.targetAliasNotFound(targetAlias) }
-        if targetMatches.count > 1 { throw QuotaError.duplicateTargetAlias(targetAlias) }
-
+    public static func summarize(accounts: [OpenCodexAccount]) -> QuotaSummary {
         let rows = accounts.map { account in
-            let nativeTotal = account.alias == targetAlias ? thresholdPercent : 100
             let factor = proEquivalentFactor(plan: account.plan)
-            let total = factor.map { nativeTotal * $0 }
+            let total = factor.map { 100 * $0 }
             let remaining = account.weeklyUsedPercent.flatMap { used in
-                factor.map { max(nativeTotal - max(used, 0), 0) * $0 }
+                factor.map { max(100 - max(used, 0), 0) * $0 }
             }
             let label = account.alias ?? (account.isMain ? "main" : account.id)
             return AccountAllowance(

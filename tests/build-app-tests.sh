@@ -40,8 +40,8 @@ make_fixture() {
 #!/bin/zsh
 set -euo pipefail
 print -r -- "swift|$*" >> "$COMMAND_LOG"
-mkdir -p "$FAKE_SWIFT_BIN/OpenCodexPauseWorker_OpenCodexTray.bundle"
-touch "$FAKE_SWIFT_BIN/OpenCodexPauseWorker_OpenCodexTray.bundle/ProviderIcon.svg"
+mkdir -p "$FAKE_SWIFT_BIN/OpenCodexQuotaTray_OpenCodexTray.bundle"
+touch "$FAKE_SWIFT_BIN/OpenCodexQuotaTray_OpenCodexTray.bundle/ProviderIcon.svg"
 touch "$FAKE_SWIFT_BIN/OpenCodexTray"
 chmod 755 "$FAKE_SWIFT_BIN/OpenCodexTray"
 if [[ " $* " == *" --show-bin-path "* ]]; then

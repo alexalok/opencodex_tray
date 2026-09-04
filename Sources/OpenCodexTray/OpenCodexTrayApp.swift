@@ -1,6 +1,6 @@
 import AppKit
 import Darwin
-import PauseWorkerCore
+import OpenCodexQuotaCore
 import ServiceManagement
 import SwiftUI
 
@@ -162,7 +162,7 @@ private struct TrayStatusLabel: View {
 
 @MainActor
 private enum ProviderIconStore {
-    private static let bundleName = "OpenCodexPauseWorker_OpenCodexTray"
+    private static let bundleName = "OpenCodexQuotaTray_OpenCodexTray"
     private static var cache: [String: CGImage] = [:]
     private static let resourceBundle: Bundle? = {
         if let url = Bundle.main.url(
@@ -212,18 +212,18 @@ final class TrayViewModel: ObservableObject {
         "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)"
     }
 
-    private let worker: PauseWorker?
+    private let refresher: QuotaRefresher?
     private let launchAtLoginController: LaunchAtLoginController
     private let interval: TimeInterval
     private var pollingTask: Task<Void, Never>?
 
     init(
-        worker: PauseWorker?,
+        refresher: QuotaRefresher?,
         interval: TimeInterval,
         startupError: String? = nil,
         launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
     ) {
-        self.worker = worker
+        self.refresher = refresher
         self.interval = interval
         self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
         self.errorMessage = startupError
@@ -236,7 +236,7 @@ final class TrayViewModel: ObservableObject {
 
     static func bootstrap() -> TrayViewModel {
         do {
-            let config = try WorkerConfiguration.load(environment: ProcessInfo.processInfo.environment)
+            let config = try TrayConfiguration.load(environment: ProcessInfo.processInfo.environment)
             let token = try AdminTokenReader.read(path: config.adminTokenPath)
             let client = OpenCodexClient(
                 baseURL: config.baseURL,
@@ -244,20 +244,16 @@ final class TrayViewModel: ObservableObject {
                 timeout: config.requestTimeout
             )
             return TrayViewModel(
-                worker: PauseWorker(
-                    client: client,
-                    targetAlias: config.targetAlias,
-                    thresholdPercent: config.thresholdPercent
-                ),
+                refresher: QuotaRefresher(client: client),
                 interval: config.pollInterval
             )
         } catch {
-            return TrayViewModel(worker: nil, interval: 60, startupError: error.localizedDescription)
+            return TrayViewModel(refresher: nil, interval: 60, startupError: error.localizedDescription)
         }
     }
 
     func startPolling() {
-        guard pollingTask == nil, worker != nil else { return }
+        guard pollingTask == nil, refresher != nil else { return }
         pollingTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
@@ -284,9 +280,9 @@ final class TrayViewModel: ObservableObject {
     }
 
     func refresh() async {
-        guard let worker else { return }
+        guard let refresher else { return }
         do {
-            let result = try await worker.refresh()
+            let result = try await refresher.refresh()
             codexRows = result.codexSummary.rows
             codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
             errorMessage = nil

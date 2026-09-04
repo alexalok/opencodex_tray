@@ -1,5 +1,7 @@
 # Notification Center Widget Implementation Plan
 
+> **Status: Obsolete (2026-09-04).** Superseded by removal of account-pausing capability, `PauseWorkerCore`, and pause CLI. Do not execute this plan; re-plan widget work against read-only `OpenCodexQuotaCore`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add small and medium macOS Notification Center widgets that fetch OpenCodex quota independently while preserving tray-only pause behavior.

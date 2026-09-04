@@ -1,5 +1,5 @@
 import XCTest
-@testable import PauseWorkerCore
+@testable import OpenCodexQuotaCore
 
 final class DisplayFormatterTests: XCTestCase {
     func testFormatsTrayAndAccountRows() {

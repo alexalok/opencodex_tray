@@ -4,9 +4,8 @@
 
 # OpenCodex Quota Tray
 
-Native macOS 14+ menu-bar app. Polls OpenCodex, pauses one exact Codex account
-alias at its configured weekly threshold, and shows Codex and Claude pool
-allowances.
+Native macOS 14+ menu-bar app. Polls OpenCodex and shows Codex and Claude pool
+allowances without mutating account state.
 
 [OpenCodex](https://github.com/lidge-jun/opencodex) is a local proxy that
 multiplexes several Codex and Claude accounts behind one endpoint and tracks
@@ -17,8 +16,7 @@ turns its per-account quota data into at-a-glance pool totals.
 
 ## Quota math
 
-Target alias native allowance equals `PAUSE_THRESHOLD_PERCENT` (default `70`).
-Every other account has `100` native allowance. Display converts all values to
+Every account has `100` native allowance. Display converts all values to
 Pro-equivalent units: `pro = 1`, `prolite = 0.25` because one Pro percentage
 point equals four ProLite percentage points.
 
@@ -32,16 +30,15 @@ Example:
 
 ```text
 main (Pro): 0%/100%
-workmate (ProLite): 4.25%/17.5%
-tray: floor(0 + 4.25) = 4%
+workmate (ProLite): 11.75%/25%
+tray: floor(0 + 11.75) = 11%
 ```
 
 Tray total represents absolute Pro-equivalent allowance, not ratio. Multiple
 accounts can therefore produce values above `100%`.
 
 Missing weekly quota or unknown plan displays `—` and makes tray total `—`
-rather than inventing capacity. Pause threshold comparison stays in each
-account's native percentage; normalization changes display math only.
+rather than inventing capacity.
 
 Claude converts OpenCodex's raw per-account Anthropic utilization to remaining
 allowance. No plan conversion is applied:
@@ -58,7 +55,8 @@ can exceed `100%`. A missing window displays `—` in only that slot.
 
 ## Configure
 
-Finder-launched apps do not reliably inherit shell environment. Create:
+Finder-launched apps do not reliably inherit shell environment. Optionally
+create this file to override defaults:
 
 ```text
 ~/.config/opencodex-quota-tray/config.json
@@ -66,8 +64,8 @@ Finder-launched apps do not reliably inherit shell environment. Create:
 
 ```json
 {
-  "targetAccountAlias": "workmate",
-  "pauseThresholdPercent": 70
+  "pollIntervalMS": 60000,
+  "requestTimeoutMS": 30000
 }
 ```
 
@@ -77,14 +75,12 @@ Optional env:
 
 | Variable | Default |
 | --- | --- |
-| `PAUSE_THRESHOLD_PERCENT` | `70` |
 | `POLL_INTERVAL_MS` | `60000` |
 | `REQUEST_TIMEOUT_MS` | `30000` |
 | `OPENCODEX_BASE_URL` | `http://127.0.0.1:10100` |
 | `OPENCODEX_HOME` | `$HOME/.opencodex` |
 
-Alias matching is exact and case-sensitive. Missing or duplicate target alias
-fails closed: no pause request is sent. Admin token is read once from
+Admin token is read once from
 `${OPENCODEX_HOME:-$HOME/.opencodex}/admin-api-token`.
 
 ## Develop
@@ -92,12 +88,6 @@ fails closed: no pause request is sent. Admin token is read once from
 ```bash
 swift test
 swift run OpenCodexTray
-```
-
-Headless single check:
-
-```bash
-swift run pause-worker-once
 ```
 
 ## Build app
