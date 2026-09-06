@@ -76,13 +76,13 @@ final class OpenCodexClientTests: XCTestCase {
             session: session
         )
 
-        let result = try await QuotaRefresher(client: client).refresh()
+        let result = await QuotaSnapshotLoader(client: client).load()
 
         XCTAssertEqual(StubURLProtocol.requests().sorted(), [
             "GET /api/codex-auth/accounts?refresh=1",
             "GET /api/oauth/accounts?provider=anthropic&quota=1&refresh=1",
         ])
-        XCTAssertEqual(result.codexSummary.rows, [
+        XCTAssertEqual(result.snapshot.codexSummary?.rows, [
             AccountAllowance(
                 accountId: "friend-id",
                 label: "workmate",

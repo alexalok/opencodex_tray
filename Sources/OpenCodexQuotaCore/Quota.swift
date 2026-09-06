@@ -44,7 +44,7 @@ public struct ClaudeAccount: Equatable, Sendable {
     }
 }
 
-public struct AccountAllowance: Equatable, Sendable, Identifiable {
+public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
     public var id: String { accountId }
     public let accountId: String
     public let label: String
@@ -59,12 +59,17 @@ public struct AccountAllowance: Equatable, Sendable, Identifiable {
     }
 }
 
-public struct QuotaSummary: Equatable, Sendable {
+public struct QuotaSummary: Codable, Equatable, Sendable {
     public let trayPercentage: Int?
     public let rows: [AccountAllowance]
+
+    public init(trayPercentage: Int?, rows: [AccountAllowance]) {
+        self.trayPercentage = trayPercentage
+        self.rows = rows
+    }
 }
 
-public struct ClaudeAccountAllowance: Equatable, Sendable, Identifiable {
+public struct ClaudeAccountAllowance: Codable, Equatable, Sendable, Identifiable {
     public var id: String { accountId }
     public let accountId: String
     public let label: String
@@ -84,7 +89,7 @@ public struct ClaudeAccountAllowance: Equatable, Sendable, Identifiable {
     }
 }
 
-public struct ClaudeQuotaSummary: Equatable, Sendable {
+public struct ClaudeQuotaSummary: Codable, Equatable, Sendable {
     public let fiveHourRemainingPercentage: Int?
     public let weeklyRemainingPercentage: Int?
     public let rows: [ClaudeAccountAllowance]

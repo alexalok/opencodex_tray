@@ -1,0 +1,585 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C10000000000000000000001 /* OpenCodexTrayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* OpenCodexTrayApp.swift */; };
+		C10000000000000000000002 /* OpenCodexWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* OpenCodexWidgetBundle.swift */; };
+		C10000000000000000000003 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* AppIcon.icns */; };
+		C10000000000000000000004 /* ProviderIcon-claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ProviderIcon-claude.svg */; };
+		C10000000000000000000005 /* ProviderIcon-codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ProviderIcon-codex.svg */; };
+		C10000000000000000000006 /* CodexBar-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CodexBar-LICENSE.txt */; };
+		C10000000000000000000007 /* ProviderIcon-claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ProviderIcon-claude.svg */; };
+		C10000000000000000000008 /* ProviderIcon-codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ProviderIcon-codex.svg */; };
+		C10000000000000000000009 /* CodexBar-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CodexBar-LICENSE.txt */; };
+		C1000000000000000000000A /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000010 /* OpenCodexQuotaCore */; };
+		C1000000000000000000000B /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000011 /* OpenCodexQuotaCore */; };
+		C1000000000000000000000C /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000012 /* OpenCodexQuotaCore */; };
+		C1000000000000000000000D /* OpenCodexWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* OpenCodexWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C1000000000000000000000E /* QuotaWidgetState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* QuotaWidgetState.swift */; };
+		C1000000000000000000000F /* WidgetSnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* WidgetSnapshotCache.swift */; };
+		C10000000000000000000010 /* QuotaWidgetState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* QuotaWidgetState.swift */; };
+		C10000000000000000000011 /* WidgetSnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* WidgetSnapshotCache.swift */; };
+		C10000000000000000000012 /* WidgetTestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* WidgetTestFixtures.swift */; };
+		C10000000000000000000013 /* QuotaWidgetStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* QuotaWidgetStateTests.swift */; };
+		C10000000000000000000014 /* WidgetSnapshotCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */; };
+		C10000000000000000000015 /* QuotaWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */; };
+		C10000000000000000000016 /* QuotaWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */; };
+		C10000000000000000000017 /* QuotaWidgetTimelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */; };
+		C10000000000000000000018 /* QuotaWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* QuotaWidgetView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E10000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000002;
+			remoteInfo = OpenCodexWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D10000000000000000000004 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C1000000000000000000000D /* OpenCodexWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* OpenCodexTrayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodexTrayApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* OpenCodexWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodexWidgetBundle.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		B10000000000000000000004 /* ProviderIcon-claude.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = "ProviderIcon-claude.svg"; sourceTree = "<group>"; };
+		B10000000000000000000005 /* ProviderIcon-codex.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = "ProviderIcon-codex.svg"; sourceTree = "<group>"; };
+		B10000000000000000000006 /* CodexBar-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "CodexBar-LICENSE.txt"; sourceTree = "<group>"; };
+		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000008 /* OpenCodexWidget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OpenCodexWidget-Info.plist"; sourceTree = "<group>"; };
+		B10000000000000000000009 /* OpenCodexWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenCodexWidget.entitlements; sourceTree = "<group>"; };
+		B1000000000000000000000A /* QuotaWidgetState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetState.swift; sourceTree = "<group>"; };
+		B1000000000000000000000B /* WidgetSnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotCache.swift; sourceTree = "<group>"; };
+		B1000000000000000000000C /* WidgetTestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTestFixtures.swift; sourceTree = "<group>"; };
+		B1000000000000000000000D /* QuotaWidgetStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetStateTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotCacheTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetTimelineProvider.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetTimelineTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* QuotaWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaWidgetView.swift; sourceTree = "<group>"; };
+		B20000000000000000000001 /* OpenCodexTray.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenCodexTray.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000002 /* OpenCodexWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenCodexWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000003 /* OpenCodexWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OpenCodexWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D10000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1000000000000000000000A /* OpenCodexQuotaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1000000000000000000000B /* OpenCodexQuotaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1000000000000000000000C /* OpenCodexQuotaCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000010 /* OpenCodexTray */,
+				A00000000000000000000011 /* OpenCodexWidget */,
+				A00000000000000000000012 /* OpenCodexWidgetTests */,
+				A00000000000000000000013 /* Shared Resources */,
+				A00000000000000000000014 /* Resources */,
+				A00000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* OpenCodexTray.app */,
+				B20000000000000000000002 /* OpenCodexWidget.appex */,
+				B20000000000000000000003 /* OpenCodexWidgetTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000010 /* OpenCodexTray */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* OpenCodexTrayApp.swift */,
+			);
+			path = Sources/OpenCodexTray;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000011 /* OpenCodexWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000002 /* OpenCodexWidgetBundle.swift */,
+				B1000000000000000000000A /* QuotaWidgetState.swift */,
+				B1000000000000000000000B /* WidgetSnapshotCache.swift */,
+				B1000000000000000000000F /* QuotaWidgetTimelineProvider.swift */,
+				B10000000000000000000011 /* QuotaWidgetView.swift */,
+			);
+			path = Sources/OpenCodexWidget;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000012 /* OpenCodexWidgetTests */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000000C /* WidgetTestFixtures.swift */,
+				B1000000000000000000000D /* QuotaWidgetStateTests.swift */,
+				B1000000000000000000000E /* WidgetSnapshotCacheTests.swift */,
+				B10000000000000000000010 /* QuotaWidgetTimelineTests.swift */,
+			);
+			path = tests/OpenCodexWidgetTests;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000013 /* Shared Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* ProviderIcon-claude.svg */,
+				B10000000000000000000005 /* ProviderIcon-codex.svg */,
+				B10000000000000000000006 /* CodexBar-LICENSE.txt */,
+			);
+			name = "Shared Resources";
+			path = Sources/OpenCodexTray/Resources;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000014 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* AppIcon.icns */,
+				B10000000000000000000007 /* Info.plist */,
+				B10000000000000000000008 /* OpenCodexWidget-Info.plist */,
+				B10000000000000000000009 /* OpenCodexWidget.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000001 /* OpenCodexTray */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F20000000000000000000010 /* Build configuration list for PBXNativeTarget "OpenCodexTray" */;
+			buildPhases = (
+				D10000000000000000000001 /* Sources */,
+				D10000000000000000000002 /* Frameworks */,
+				D10000000000000000000003 /* Resources */,
+				D10000000000000000000004 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E10000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = OpenCodexTray;
+			packageProductDependencies = (
+				G10000000000000000000010 /* OpenCodexQuotaCore */,
+			);
+			productName = OpenCodexTray;
+			productReference = B20000000000000000000001 /* OpenCodexTray.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A10000000000000000000002 /* OpenCodexWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F20000000000000000000020 /* Build configuration list for PBXNativeTarget "OpenCodexWidget" */;
+			buildPhases = (
+				D10000000000000000000011 /* Sources */,
+				D10000000000000000000012 /* Frameworks */,
+				D10000000000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenCodexWidget;
+			packageProductDependencies = (
+				G10000000000000000000011 /* OpenCodexQuotaCore */,
+			);
+			productName = OpenCodexWidget;
+			productReference = B20000000000000000000002 /* OpenCodexWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A10000000000000000000003 /* OpenCodexWidgetTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F20000000000000000000030 /* Build configuration list for PBXNativeTarget "OpenCodexWidgetTests" */;
+			buildPhases = (
+				D10000000000000000000021 /* Sources */,
+				D10000000000000000000022 /* Frameworks */,
+				D10000000000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenCodexWidgetTests;
+			packageProductDependencies = (
+				G10000000000000000000012 /* OpenCodexQuotaCore */,
+			);
+			productName = OpenCodexWidgetTests;
+			productReference = B20000000000000000000003 /* OpenCodexWidgetTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A10000000000000000000001 = {CreatedOnToolsVersion = 26.0; };
+					A10000000000000000000002 = {CreatedOnToolsVersion = 26.0; };
+					A10000000000000000000003 = {CreatedOnToolsVersion = 26.0; };
+				};
+			};
+			buildConfigurationList = F20000000000000000000001 /* Build configuration list for PBXProject "OpenCodexTray" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A00000000000000000000002;
+			packageReferences = (
+				G10000000000000000000001 /* XCLocalSwiftPackageReference "." */,
+			);
+			productRefGroup = A00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000001 /* OpenCodexTray */,
+				A10000000000000000000002 /* OpenCodexWidget */,
+				A10000000000000000000003 /* OpenCodexWidgetTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000003 /* AppIcon.icns in Resources */,
+				C10000000000000000000004 /* ProviderIcon-claude.svg in Resources */,
+				C10000000000000000000005 /* ProviderIcon-codex.svg in Resources */,
+				C10000000000000000000006 /* CodexBar-LICENSE.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000007 /* ProviderIcon-claude.svg in Resources */,
+				C10000000000000000000008 /* ProviderIcon-codex.svg in Resources */,
+				C10000000000000000000009 /* CodexBar-LICENSE.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D10000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000001 /* OpenCodexTrayApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000002 /* OpenCodexWidgetBundle.swift in Sources */,
+				C1000000000000000000000E /* QuotaWidgetState.swift in Sources */,
+				C1000000000000000000000F /* WidgetSnapshotCache.swift in Sources */,
+				C10000000000000000000015 /* QuotaWidgetTimelineProvider.swift in Sources */,
+				C10000000000000000000018 /* QuotaWidgetView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000010 /* QuotaWidgetState.swift in Sources */,
+				C10000000000000000000011 /* WidgetSnapshotCache.swift in Sources */,
+				C10000000000000000000012 /* WidgetTestFixtures.swift in Sources */,
+				C10000000000000000000013 /* QuotaWidgetStateTests.swift in Sources */,
+				C10000000000000000000014 /* WidgetSnapshotCacheTests.swift in Sources */,
+				C10000000000000000000016 /* QuotaWidgetTimelineProvider.swift in Sources */,
+				C10000000000000000000017 /* QuotaWidgetTimelineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E10000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000002 /* OpenCodexWidget */;
+			targetProxy = E10000000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		F10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F10000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexTray.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 5;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F10000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexTray.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 5;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		F10000000000000000000020 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 5;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Resources/OpenCodexWidget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F10000000000000000000021 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 5;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Resources/OpenCodexWidget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		F10000000000000000000030 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F10000000000000000000031 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F20000000000000000000001 /* Build configuration list for PBXProject "OpenCodexTray" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000001 /* Debug */,
+				F10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F20000000000000000000010 /* Build configuration list for PBXNativeTarget "OpenCodexTray" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000010 /* Debug */,
+				F10000000000000000000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F20000000000000000000020 /* Build configuration list for PBXNativeTarget "OpenCodexWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000020 /* Debug */,
+				F10000000000000000000021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F20000000000000000000030 /* Build configuration list for PBXNativeTarget "OpenCodexWidgetTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000030 /* Debug */,
+				F10000000000000000000031 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		G10000000000000000000001 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		G10000000000000000000010 /* OpenCodexQuotaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = OpenCodexQuotaCore;
+		};
+		G10000000000000000000011 /* OpenCodexQuotaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = OpenCodexQuotaCore;
+		};
+		G10000000000000000000012 /* OpenCodexQuotaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = OpenCodexQuotaCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}

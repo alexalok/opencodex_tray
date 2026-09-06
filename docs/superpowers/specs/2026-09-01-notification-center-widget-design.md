@@ -81,8 +81,8 @@ This keeps calculation, partial-failure handling, and provider fetch concurrency
 
 Add a WidgetKit timeline provider in a new `OpenCodexWidget` source directory. Its production path:
 
-1. loads `WorkerConfiguration` from the current environment and config file;
-2. reads the admin token with `AdminTokenReader`;
+1. loads validated connection settings from the Team-ID App Group;
+2. constructs no direct home-directory file access;
 3. creates the fetch-only client and `QuotaSnapshotLoader`;
 4. loads a snapshot;
 5. applies the failure/cache rules above;
@@ -94,14 +94,19 @@ WidgetKit may coalesce or defer that requested refresh. The UI therefore always 
 
 ## Sandbox and File Access
 
-The widget extension enables App Sandbox and outbound network access. It uses read-only, home-relative temporary file exceptions limited to:
+The widget extension enables App Sandbox and outbound network access. Both the
+tray and extension carry the macOS App Group entitlement
+`KTNPDHXXV3.opencodex.quota-tray.shared`. On successful tray bootstrap, the
+unsandboxed host validates its normal config and token inputs, then atomically
+writes the minimal widget connection payload to a `0700` directory with a
+`0600` file. The extension reads only this shared file; it has no home-directory
+temporary exceptions.
 
-- `~/.config/opencodex-quota-tray/` for `config.json`;
-- `~/.opencodex/` for `admin-api-token`.
-
-The app remains directly distributed rather than Mac App Store packaged. The extension never writes to either home directory.
-
-The widget supports the existing default config and token locations. A custom `XDG_CONFIG_HOME` or `OPENCODEX_HOME` outside those entitled directories remains usable by the tray but produces an unavailable widget state. Supporting arbitrary external paths would require a broader entitlement or a user-mediated shared-container flow and is outside this feature.
+The app remains directly distributed rather than Mac App Store packaged. The
+shared payload lets custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work
+without granting the extension access to arbitrary home locations. Config or
+token changes take effect in the widget after the tray runs again. The payload
+persists, so the extension can continue refreshing after the tray stops.
 
 The OpenCodex service must remain reachable independently of the tray process. Loopback HTTP remains valid under current configuration rules; non-loopback endpoints still require HTTPS.
 
@@ -116,17 +121,23 @@ Add a checked-in `OpenCodexTray.xcodeproj` with:
 
 `Package.swift` remains authoritative for `PauseWorkerCore`, `pause-worker-once`, existing unit tests, and command-line `swift build` workflows. The existing provider icon files under `Sources/OpenCodexTray/Resources` remain single physical files: SwiftPM continues processing them for the executable resource bundle, while both Xcode app and widget targets reference those same files as resources.
 
-Widget-specific metadata and sandbox permissions live in checked-in files under `Resources`, including the extension Info plist and entitlements. Widget implementation files live under `Sources/OpenCodexWidget` and are not added as a SwiftPM target.
+Widget-specific metadata and sandbox permissions live in checked-in files under `Resources`, including the extension Info plist and entitlements. Host App Group permissions live in `Resources/OpenCodexTray.entitlements`. Widget implementation files live under `Sources/OpenCodexWidget` and are not added as a SwiftPM target.
 
 Update `scripts/build-app.sh` to build the Release app with offline `xcodebuild`, copy the resulting complete app bundle to `dist/OpenCodexTray.app`, and preserve current environment precedence and notarization controls.
 
 Signing order is always inside-out:
 
 1. sign `Contents/PlugIns/OpenCodexWidget.appex` with widget entitlements;
-2. sign `OpenCodexTray.app`;
+2. sign `OpenCodexTray.app` with host App Group entitlements;
 3. verify the complete bundle with `codesign --verify --deep --strict`.
 
-Local builds use ad-hoc signing and perform no network or notarization calls. `NOTARIZE=1` uses the configured Developer ID identity for both nested bundles, enables hardened runtime and timestamps, then preserves the existing archive, notarization, stapling, Gatekeeper assessment, and repackaging sequence.
+Local builds use ad-hoc signing and perform no network or notarization calls;
+they verify compilation and bundle structure but do not provide a Team ID for
+live App Group access. `NOTARIZE=1` uses the configured Developer ID identity
+for both nested bundles, enables hardened runtime and timestamps, then
+preserves the existing archive, notarization, stapling, Gatekeeper assessment,
+and repackaging sequence. That identity's Team ID must match the checked-in App
+Group prefix.
 
 ## Tests and Verification
 

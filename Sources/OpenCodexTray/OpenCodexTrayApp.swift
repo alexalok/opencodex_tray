@@ -1,8 +1,10 @@
 import AppKit
 import Darwin
 import OpenCodexQuotaCore
+import OSLog
 import ServiceManagement
 import SwiftUI
+import WidgetKit
 
 @main
 struct OpenCodexTrayApp: App {
@@ -175,7 +177,20 @@ private enum ProviderIconStore {
         let executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
             .standardizedFileURL
             .deletingLastPathComponent()
-        return Bundle(url: executableURL.appendingPathComponent("\(bundleName).bundle"))
+        if let bundle = Bundle(
+            url: executableURL.appendingPathComponent("\(bundleName).bundle")
+        ) {
+            return bundle
+        }
+
+        let names = ["ProviderIcon-claude", "ProviderIcon-codex"]
+        if names.allSatisfy({
+            Bundle.main.url(forResource: $0, withExtension: "svg") != nil
+        }) {
+            return Bundle.main
+        }
+
+        return nil
     }()
 
     static func cgImage(named name: String) -> CGImage? {
@@ -198,6 +213,11 @@ private enum ProviderIconStore {
 
 @MainActor
 final class TrayViewModel: ObservableObject {
+    private static let logger = Logger(
+        subsystem: "local.opencodex.quota-tray",
+        category: "widget-configuration"
+    )
+
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
     @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
@@ -238,13 +258,27 @@ final class TrayViewModel: ObservableObject {
         do {
             let config = try TrayConfiguration.load(environment: ProcessInfo.processInfo.environment)
             let token = try AdminTokenReader.read(path: config.adminTokenPath)
+            do {
+                let widgetConfiguration = WidgetConnectionConfiguration(
+                    baseURL: config.baseURL,
+                    adminToken: token,
+                    requestTimeout: config.requestTimeout
+                )
+                try WidgetConfigurationStore.shared().save(widgetConfiguration)
+                WidgetCenter.shared.reloadAllTimelines()
+            } catch {
+                Self.logger.error(
+                    "Failed to sync widget configuration: \(error.localizedDescription, privacy: .public)"
+                )
+            }
             let client = OpenCodexClient(
                 baseURL: config.baseURL,
                 adminToken: token,
                 timeout: config.requestTimeout
             )
+            let loader = QuotaSnapshotLoader(client: client)
             return TrayViewModel(
-                refresher: QuotaRefresher(client: client),
+                refresher: QuotaRefresher(loader: loader),
                 interval: config.pollInterval
             )
         } catch {
@@ -281,21 +315,22 @@ final class TrayViewModel: ObservableObject {
 
     func refresh() async {
         guard let refresher else { return }
-        do {
-            let result = try await refresher.refresh()
-            codexRows = result.codexSummary.rows
-            codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
+        let snapshot = await refresher.refresh().snapshot
+        if let codexSummary = snapshot.codexSummary {
+            codexRows = codexSummary.rows
+            codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)
             errorMessage = nil
-            if let claudeSummary = result.claudeSummary {
-                claudeRows = claudeSummary.rows
-                claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
-            } else {
-                claudeTrayTitle = "!"
-            }
-            claudeErrorMessage = result.claudeErrorMessage
-        } catch {
-            errorMessage = error.localizedDescription
+        } else {
             codexTrayTitle = "!"
+            errorMessage = snapshot.codexErrorMessage
+        }
+        if let claudeSummary = snapshot.claudeSummary {
+            claudeRows = claudeSummary.rows
+            claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
+            claudeErrorMessage = nil
+        } else {
+            claudeTrayTitle = "!"
+            claudeErrorMessage = snapshot.claudeErrorMessage
         }
     }
 }
