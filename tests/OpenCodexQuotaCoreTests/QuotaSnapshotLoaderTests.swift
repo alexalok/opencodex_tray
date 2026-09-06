@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import PauseWorkerCore
+@testable import OpenCodexQuotaCore
 
 private enum FakeQuotaError: LocalizedError, Sendable {
     case codex
@@ -77,7 +77,6 @@ private let codexAccounts = [
         alias: "workmate",
         plan: "prolite",
         isMain: false,
-        paused: false,
         weeklyUsedPercent: 53
     ),
 ]
@@ -102,152 +101,81 @@ private let claudeAccounts = [
 private let quotaSnapshotTestDate = Date(timeIntervalSince1970: 1_788_231_600)
 
 final class QuotaSnapshotLoaderTests: XCTestCase {
-    func testCompleteLoadReturnsBothSummariesAndRawCodexAccounts() async {
-        let loader = makeLoader(
+    func testCompleteLoadReturnsBothSummaries() async {
+        let load = await makeLoader(
             codexResult: .success(codexAccounts),
             claudeResult: .success(claudeAccounts)
-        )
-
-        let load = await loader.load()
+        ).load()
 
         XCTAssertEqual(load.snapshot.fetchedAt, quotaSnapshotTestDate)
-        XCTAssertEqual(load.snapshot.codexSummary?.trayPercentage, 4)
+        XCTAssertEqual(load.snapshot.codexSummary?.trayPercentage, 11)
         XCTAssertEqual(load.snapshot.claudeSummary?.fiveHourRemainingPercentage, 140)
         XCTAssertEqual(load.snapshot.claudeSummary?.weeklyRemainingPercentage, 120)
         XCTAssertNil(load.snapshot.codexErrorMessage)
         XCTAssertNil(load.snapshot.claudeErrorMessage)
-        XCTAssertEqual(load.codexAccounts, codexAccounts)
     }
 
     func testClaudeFailureKeepsCodexSnapshot() async {
-        let loader = makeLoader(
+        let load = await makeLoader(
             codexResult: .success(codexAccounts),
             claudeResult: .failure(.claude)
-        )
+        ).load()
 
-        let load = await loader.load()
-
-        XCTAssertEqual(load.snapshot.fetchedAt, quotaSnapshotTestDate)
         XCTAssertNotNil(load.snapshot.codexSummary)
         XCTAssertNil(load.snapshot.codexErrorMessage)
         XCTAssertNil(load.snapshot.claudeSummary)
         XCTAssertEqual(load.snapshot.claudeErrorMessage, "Claude unavailable")
-        XCTAssertEqual(load.codexAccounts, codexAccounts)
     }
 
     func testCodexFailureKeepsClaudeSnapshot() async {
-        let loader = makeLoader(
+        let load = await makeLoader(
             codexResult: .failure(.codex),
             claudeResult: .success(claudeAccounts)
-        )
-
-        let load = await loader.load()
+        ).load()
 
         XCTAssertNil(load.snapshot.codexSummary)
         XCTAssertEqual(load.snapshot.codexErrorMessage, "Codex unavailable")
         XCTAssertNotNil(load.snapshot.claudeSummary)
         XCTAssertNil(load.snapshot.claudeErrorMessage)
-        XCTAssertNil(load.codexAccounts)
     }
 
     func testBothFailuresReturnTimestampedEmptySnapshot() async {
-        let loader = makeLoader(
+        let load = await makeLoader(
             codexResult: .failure(.codex),
             claudeResult: .failure(.claude)
-        )
-
-        let load = await loader.load()
+        ).load()
 
         XCTAssertEqual(load.snapshot.fetchedAt, quotaSnapshotTestDate)
         XCTAssertFalse(load.snapshot.hasProviderData)
         XCTAssertEqual(load.snapshot.codexErrorMessage, "Codex unavailable")
         XCTAssertEqual(load.snapshot.claudeErrorMessage, "Claude unavailable")
-        XCTAssertNil(load.codexAccounts)
     }
 
-    func testMissingTargetAliasIsCodexOnlyFailure() async {
+    func testCodexSummaryIncludesEveryAccountWithoutSelector() async {
         let accounts = [
-            OpenCodexAccount(
-                id: "other-id",
-                alias: "other",
-                plan: "pro",
-                isMain: false,
-                paused: false,
-                weeklyUsedPercent: 20
-            ),
-        ]
-        let loader = makeLoader(
-            codexResult: .success(accounts),
-            claudeResult: .success(claudeAccounts)
-        )
-
-        let load = await loader.load()
-
-        XCTAssertNil(load.snapshot.codexSummary)
-        XCTAssertEqual(
-            load.snapshot.codexErrorMessage,
-            "Target account alias \"workmate\" was not returned by OpenCodex"
-        )
-        XCTAssertNotNil(load.snapshot.claudeSummary)
-        XCTAssertNil(load.codexAccounts)
-    }
-
-    func testDuplicateTargetAliasIsCodexOnlyFailure() async {
-        let accounts = [
-            OpenCodexAccount(
-                id: "first-id",
-                alias: "workmate",
-                plan: "pro",
-                isMain: false,
-                paused: false,
-                weeklyUsedPercent: 20
-            ),
-            OpenCodexAccount(
-                id: "second-id",
-                alias: "workmate",
-                plan: "prolite",
-                isMain: false,
-                paused: false,
-                weeklyUsedPercent: 30
-            ),
-        ]
-        let loader = makeLoader(
-            codexResult: .success(accounts),
-            claudeResult: .success(claudeAccounts)
-        )
-
-        let load = await loader.load()
-
-        XCTAssertNil(load.snapshot.codexSummary)
-        XCTAssertEqual(
-            load.snapshot.codexErrorMessage,
-            "Target account alias \"workmate\" matched multiple OpenCodex accounts"
-        )
-        XCTAssertNotNil(load.snapshot.claudeSummary)
-        XCTAssertNil(load.codexAccounts)
-    }
-
-    func testRowsPreserveAPIOrder() async {
-        let codex = [
             OpenCodexAccount(
                 id: "main-id",
                 alias: "main",
                 plan: "pro",
                 isMain: true,
-                paused: false,
                 weeklyUsedPercent: 20
             ),
-            codexAccounts[0],
+            OpenCodexAccount(
+                id: "friend-id",
+                alias: "workmate",
+                plan: "prolite",
+                isMain: false,
+                weeklyUsedPercent: 60
+            ),
         ]
-        let loader = makeLoader(
-            codexResult: .success(codex),
+
+        let load = await makeLoader(
+            codexResult: .success(accounts),
             claudeResult: .success(claudeAccounts)
-        )
+        ).load()
 
-        let load = await loader.load()
-
+        XCTAssertEqual(load.snapshot.codexSummary?.trayPercentage, 90)
         XCTAssertEqual(load.snapshot.codexSummary?.rows.map(\.label), ["main", "workmate"])
-        XCTAssertEqual(load.snapshot.claudeSummary?.rows.map(\.label), ["work", "personal"])
     }
 
     func testLoadStartsProviderRequestsConcurrently() async {
@@ -257,9 +185,7 @@ final class QuotaSnapshotLoaderTests: XCTestCase {
                 codexResult: .success(codexAccounts),
                 claudeResult: .success([]),
                 probe: probe
-            ),
-            targetAlias: "workmate",
-            thresholdPercent: 70
+            )
         )
 
         _ = await loader.load()
@@ -277,8 +203,6 @@ final class QuotaSnapshotLoaderTests: XCTestCase {
                 codexResult: codexResult,
                 claudeResult: claudeResult
             ),
-            targetAlias: "workmate",
-            thresholdPercent: 70,
             now: { quotaSnapshotTestDate }
         )
     }

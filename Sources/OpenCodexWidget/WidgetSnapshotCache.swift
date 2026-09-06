@@ -1,5 +1,5 @@
 import Foundation
-import PauseWorkerCore
+import OpenCodexQuotaCore
 
 protocol WidgetSnapshotCaching: Sendable {
     func load() async -> QuotaSnapshot?

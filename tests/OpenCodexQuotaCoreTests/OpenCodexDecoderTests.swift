@@ -1,9 +1,9 @@
 import XCTest
-@testable import PauseWorkerCore
+@testable import OpenCodexQuotaCore
 
 final class OpenCodexDecoderTests: XCTestCase {
     func testPreservesAccountPlanForCapacityNormalization() throws {
-        let data = Data(#"{"accounts":[{"id":"friend-id","alias":"workmate","plan":"prolite","isMain":false,"paused":false,"quota":{"weeklyPercent":53}}]}"#.utf8)
+        let data = Data(#"{"accounts":[{"id":"friend-id","alias":"workmate","plan":"prolite","isMain":false,"quota":{"weeklyPercent":53}}]}"#.utf8)
 
         let accounts = try OpenCodexResponseDecoder.decodeAccounts(data)
 
@@ -12,7 +12,6 @@ final class OpenCodexDecoderTests: XCTestCase {
             alias: "workmate",
             plan: "prolite",
             isMain: false,
-            paused: false,
             weeklyUsedPercent: 53
         )])
     }

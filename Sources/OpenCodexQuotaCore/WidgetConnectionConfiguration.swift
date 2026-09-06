@@ -3,21 +3,15 @@ import Foundation
 public struct WidgetConnectionConfiguration: Codable, Equatable, Sendable {
     public let baseURL: URL
     public let adminToken: String
-    public let targetAlias: String
-    public let thresholdPercent: Double
     public let requestTimeout: TimeInterval
 
     public init(
         baseURL: URL,
         adminToken: String,
-        targetAlias: String,
-        thresholdPercent: Double,
         requestTimeout: TimeInterval
     ) {
         self.baseURL = baseURL
         self.adminToken = adminToken
-        self.targetAlias = targetAlias
-        self.thresholdPercent = thresholdPercent
         self.requestTimeout = requestTimeout
     }
 }

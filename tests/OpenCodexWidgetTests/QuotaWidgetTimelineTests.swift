@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-import PauseWorkerCore
+import OpenCodexQuotaCore
 
 final class QuotaWidgetTimelineTests: XCTestCase {
     func testNextRefreshIsThirtyMinutesAfterEntryDate() async {
@@ -36,7 +36,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
         let service = QuotaWidgetTimelineService(
             makeLoader: {
                 FakeSnapshotLoader(
-                    result: QuotaSnapshotLoad(snapshot: snapshot, codexAccounts: [])
+                    result: QuotaSnapshotLoad(snapshot: snapshot)
                 )
             },
             cache: cache,
@@ -61,7 +61,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
         let service = QuotaWidgetTimelineService(
             makeLoader: {
                 FakeSnapshotLoader(
-                    result: QuotaSnapshotLoad(snapshot: partial, codexAccounts: [])
+                    result: QuotaSnapshotLoad(snapshot: partial)
                 )
             },
             cache: cache,

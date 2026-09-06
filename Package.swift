@@ -3,25 +3,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "OpenCodexPauseWorker",
+    name: "OpenCodexQuotaTray",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "PauseWorkerCore", targets: ["PauseWorkerCore"]),
+        .library(name: "OpenCodexQuotaCore", targets: ["OpenCodexQuotaCore"]),
         .executable(name: "OpenCodexTray", targets: ["OpenCodexTray"]),
-        .executable(name: "pause-worker-once", targets: ["PauseWorkerOnce"]),
     ],
     targets: [
-        .target(name: "PauseWorkerCore"),
+        .target(name: "OpenCodexQuotaCore"),
         .executableTarget(
             name: "OpenCodexTray",
-            dependencies: ["PauseWorkerCore"],
+            dependencies: ["OpenCodexQuotaCore"],
             resources: [.process("Resources")]
         ),
-        .executableTarget(name: "PauseWorkerOnce", dependencies: ["PauseWorkerCore"]),
         .testTarget(
-            name: "PauseWorkerCoreTests",
-            dependencies: ["PauseWorkerCore"],
-            path: "tests/PauseWorkerCoreTests"
+            name: "OpenCodexQuotaCoreTests",
+            dependencies: ["OpenCodexQuotaCore"],
+            path: "tests/OpenCodexQuotaCoreTests"
         ),
     ]
 )

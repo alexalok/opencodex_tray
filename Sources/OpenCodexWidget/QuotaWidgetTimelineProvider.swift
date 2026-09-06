@@ -1,6 +1,6 @@
 import Foundation
 import OSLog
-import PauseWorkerCore
+import OpenCodexQuotaCore
 import WidgetKit
 
 struct QuotaWidgetEntry: TimelineEntry, Equatable {
@@ -159,15 +159,11 @@ struct QuotaWidgetTimelineProvider: TimelineProvider {
 
     private static func makeProductionLoader() throws -> any QuotaSnapshotLoading {
         let config = try WidgetConfigurationStore.shared().load()
-        let client = OpenCodexQuotaClient(
+        let client = OpenCodexClient(
             baseURL: config.baseURL,
             adminToken: config.adminToken,
             timeout: config.requestTimeout
         )
-        return QuotaSnapshotLoader(
-            client: client,
-            targetAlias: config.targetAlias,
-            thresholdPercent: config.thresholdPercent
-        )
+        return QuotaSnapshotLoader(client: client)
     }
 }

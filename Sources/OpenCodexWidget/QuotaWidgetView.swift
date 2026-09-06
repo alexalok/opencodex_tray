@@ -1,5 +1,5 @@
 import AppKit
-import PauseWorkerCore
+import OpenCodexQuotaCore
 import SwiftUI
 import WidgetKit
 

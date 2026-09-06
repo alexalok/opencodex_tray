@@ -1,10 +1,10 @@
 import XCTest
-import PauseWorkerCore
+import OpenCodexQuotaCore
 
 final class QuotaWidgetStateTests: XCTestCase {
     func testCompleteLoadDisplaysLiveAndRequestsCacheReplacement() {
         let snapshot = makeCompleteSnapshot()
-        let load = QuotaSnapshotLoad(snapshot: snapshot, codexAccounts: [])
+        let load = QuotaSnapshotLoad(snapshot: snapshot)
 
         let result = QuotaWidgetStateResolver.resolve(load: load, cached: nil)
 
@@ -22,7 +22,7 @@ final class QuotaWidgetStateTests: XCTestCase {
         )
 
         let result = QuotaWidgetStateResolver.resolve(
-            load: QuotaSnapshotLoad(snapshot: partial, codexAccounts: []),
+            load: QuotaSnapshotLoad(snapshot: partial),
             cached: cached
         )
 
@@ -40,7 +40,7 @@ final class QuotaWidgetStateTests: XCTestCase {
         )
 
         let result = QuotaWidgetStateResolver.resolve(
-            load: QuotaSnapshotLoad(snapshot: failed, codexAccounts: nil),
+            load: QuotaSnapshotLoad(snapshot: failed),
             cached: cached
         )
 
@@ -58,7 +58,7 @@ final class QuotaWidgetStateTests: XCTestCase {
 
         XCTAssertEqual(
             QuotaWidgetStateResolver.resolve(
-                load: QuotaSnapshotLoad(snapshot: failed, codexAccounts: nil),
+                load: QuotaSnapshotLoad(snapshot: failed),
                 cached: nil
             ).content,
             .unavailable

@@ -1,5 +1,5 @@
 import Foundation
-import PauseWorkerCore
+import OpenCodexQuotaCore
 
 enum QuotaWidgetContent: Equatable, Sendable {
     case snapshot(QuotaSnapshot, stale: Bool)

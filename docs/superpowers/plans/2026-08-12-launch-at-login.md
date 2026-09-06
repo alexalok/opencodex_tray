@@ -1,5 +1,7 @@
 # Launch at Login Implementation Plan
 
+> **Status: Obsolete (2026-09-04).** Historical implementation plan. Current code lives in `OpenCodexQuotaCore`; do not execute these path- and target-specific steps.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add configurable launch-at-login from tray menu.

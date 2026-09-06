@@ -16,9 +16,9 @@
 		C10000000000000000000007 /* ProviderIcon-claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ProviderIcon-claude.svg */; };
 		C10000000000000000000008 /* ProviderIcon-codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ProviderIcon-codex.svg */; };
 		C10000000000000000000009 /* CodexBar-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CodexBar-LICENSE.txt */; };
-		C1000000000000000000000A /* PauseWorkerCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000010 /* PauseWorkerCore */; };
-		C1000000000000000000000B /* PauseWorkerCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000011 /* PauseWorkerCore */; };
-		C1000000000000000000000C /* PauseWorkerCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000012 /* PauseWorkerCore */; };
+		C1000000000000000000000A /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000010 /* OpenCodexQuotaCore */; };
+		C1000000000000000000000B /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000011 /* OpenCodexQuotaCore */; };
+		C1000000000000000000000C /* OpenCodexQuotaCore in Frameworks */ = {isa = PBXBuildFile; productRef = G10000000000000000000012 /* OpenCodexQuotaCore */; };
 		C1000000000000000000000D /* OpenCodexWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* OpenCodexWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C1000000000000000000000E /* QuotaWidgetState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* QuotaWidgetState.swift */; };
 		C1000000000000000000000F /* WidgetSnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* WidgetSnapshotCache.swift */; };
@@ -85,7 +85,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1000000000000000000000A /* PauseWorkerCore in Frameworks */,
+				C1000000000000000000000A /* OpenCodexQuotaCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -93,7 +93,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1000000000000000000000B /* PauseWorkerCore in Frameworks */,
+				C1000000000000000000000B /* OpenCodexQuotaCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -101,7 +101,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1000000000000000000000C /* PauseWorkerCore in Frameworks */,
+				C1000000000000000000000C /* OpenCodexQuotaCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,7 +202,7 @@
 			);
 			name = OpenCodexTray;
 			packageProductDependencies = (
-				G10000000000000000000010 /* PauseWorkerCore */,
+				G10000000000000000000010 /* OpenCodexQuotaCore */,
 			);
 			productName = OpenCodexTray;
 			productReference = B20000000000000000000001 /* OpenCodexTray.app */;
@@ -222,7 +222,7 @@
 			);
 			name = OpenCodexWidget;
 			packageProductDependencies = (
-				G10000000000000000000011 /* PauseWorkerCore */,
+				G10000000000000000000011 /* OpenCodexQuotaCore */,
 			);
 			productName = OpenCodexWidget;
 			productReference = B20000000000000000000002 /* OpenCodexWidget.appex */;
@@ -242,7 +242,7 @@
 			);
 			name = OpenCodexWidgetTests;
 			packageProductDependencies = (
-				G10000000000000000000012 /* PauseWorkerCore */,
+				G10000000000000000000012 /* OpenCodexQuotaCore */,
 			);
 			productName = OpenCodexWidgetTests;
 			productReference = B20000000000000000000003 /* OpenCodexWidgetTests.xctest */;
@@ -402,7 +402,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexTray.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -411,7 +411,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = NO;
@@ -424,7 +424,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexTray.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -433,7 +433,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = NO;
@@ -446,7 +446,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Resources/OpenCodexWidget-Info.plist";
@@ -456,7 +456,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -469,7 +469,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/OpenCodexWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Resources/OpenCodexWidget-Info.plist";
@@ -479,7 +479,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -490,10 +490,10 @@
 		F10000000000000000000030 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget-tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -504,10 +504,10 @@
 		F10000000000000000000031 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = local.opencodex.quota-tray.widget-tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -564,20 +564,20 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		G10000000000000000000010 /* PauseWorkerCore */ = {
+		G10000000000000000000010 /* OpenCodexQuotaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
-			productName = PauseWorkerCore;
+			productName = OpenCodexQuotaCore;
 		};
-		G10000000000000000000011 /* PauseWorkerCore */ = {
+		G10000000000000000000011 /* OpenCodexQuotaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
-			productName = PauseWorkerCore;
+			productName = OpenCodexQuotaCore;
 		};
-		G10000000000000000000012 /* PauseWorkerCore */ = {
+		G10000000000000000000012 /* OpenCodexQuotaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = G10000000000000000000001 /* XCLocalSwiftPackageReference "." */;
-			productName = PauseWorkerCore;
+			productName = OpenCodexQuotaCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

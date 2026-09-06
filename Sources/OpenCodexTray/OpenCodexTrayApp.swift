@@ -1,7 +1,7 @@
 import AppKit
 import Darwin
+import OpenCodexQuotaCore
 import OSLog
-import PauseWorkerCore
 import ServiceManagement
 import SwiftUI
 import WidgetKit
@@ -164,7 +164,7 @@ private struct TrayStatusLabel: View {
 
 @MainActor
 private enum ProviderIconStore {
-    private static let bundleName = "OpenCodexPauseWorker_OpenCodexTray"
+    private static let bundleName = "OpenCodexQuotaTray_OpenCodexTray"
     private static var cache: [String: CGImage] = [:]
     private static let resourceBundle: Bundle? = {
         if let url = Bundle.main.url(
@@ -232,18 +232,18 @@ final class TrayViewModel: ObservableObject {
         "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)"
     }
 
-    private let worker: PauseWorker?
+    private let refresher: QuotaRefresher?
     private let launchAtLoginController: LaunchAtLoginController
     private let interval: TimeInterval
     private var pollingTask: Task<Void, Never>?
 
     init(
-        worker: PauseWorker?,
+        refresher: QuotaRefresher?,
         interval: TimeInterval,
         startupError: String? = nil,
         launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
     ) {
-        self.worker = worker
+        self.refresher = refresher
         self.interval = interval
         self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
         self.errorMessage = startupError
@@ -256,14 +256,12 @@ final class TrayViewModel: ObservableObject {
 
     static func bootstrap() -> TrayViewModel {
         do {
-            let config = try WorkerConfiguration.load(environment: ProcessInfo.processInfo.environment)
+            let config = try TrayConfiguration.load(environment: ProcessInfo.processInfo.environment)
             let token = try AdminTokenReader.read(path: config.adminTokenPath)
             do {
                 let widgetConfiguration = WidgetConnectionConfiguration(
                     baseURL: config.baseURL,
                     adminToken: token,
-                    targetAlias: config.targetAlias,
-                    thresholdPercent: config.thresholdPercent,
                     requestTimeout: config.requestTimeout
                 )
                 try WidgetConfigurationStore.shared().save(widgetConfiguration)
@@ -273,36 +271,23 @@ final class TrayViewModel: ObservableObject {
                     "Failed to sync widget configuration: \(error.localizedDescription, privacy: .public)"
                 )
             }
-            let quotaClient = OpenCodexQuotaClient(
+            let client = OpenCodexClient(
                 baseURL: config.baseURL,
                 adminToken: token,
                 timeout: config.requestTimeout
             )
-            let loader = QuotaSnapshotLoader(
-                client: quotaClient,
-                targetAlias: config.targetAlias,
-                thresholdPercent: config.thresholdPercent
-            )
+            let loader = QuotaSnapshotLoader(client: client)
             return TrayViewModel(
-                worker: PauseWorker(
-                    loader: loader,
-                    pauser: OpenCodexPauseClient(
-                        baseURL: config.baseURL,
-                        adminToken: token,
-                        timeout: config.requestTimeout
-                    ),
-                    targetAlias: config.targetAlias,
-                    thresholdPercent: config.thresholdPercent
-                ),
+                refresher: QuotaRefresher(loader: loader),
                 interval: config.pollInterval
             )
         } catch {
-            return TrayViewModel(worker: nil, interval: 60, startupError: error.localizedDescription)
+            return TrayViewModel(refresher: nil, interval: 60, startupError: error.localizedDescription)
         }
     }
 
     func startPolling() {
-        guard pollingTask == nil, worker != nil else { return }
+        guard pollingTask == nil, refresher != nil else { return }
         pollingTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
@@ -329,28 +314,23 @@ final class TrayViewModel: ObservableObject {
     }
 
     func refresh() async {
-        guard let worker else { return }
-        do {
-            let result = try await worker.refresh()
-            if let codexSummary = result.snapshot.codexSummary {
-                codexRows = codexSummary.rows
-                codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)
-                errorMessage = nil
-            } else {
-                codexTrayTitle = "!"
-                errorMessage = result.snapshot.codexErrorMessage
-            }
-            if let claudeSummary = result.snapshot.claudeSummary {
-                claudeRows = claudeSummary.rows
-                claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
-                claudeErrorMessage = nil
-            } else {
-                claudeTrayTitle = "!"
-                claudeErrorMessage = result.snapshot.claudeErrorMessage
-            }
-        } catch {
-            errorMessage = error.localizedDescription
+        guard let refresher else { return }
+        let snapshot = await refresher.refresh().snapshot
+        if let codexSummary = snapshot.codexSummary {
+            codexRows = codexSummary.rows
+            codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)
+            errorMessage = nil
+        } else {
             codexTrayTitle = "!"
+            errorMessage = snapshot.codexErrorMessage
+        }
+        if let claudeSummary = snapshot.claudeSummary {
+            claudeRows = claudeSummary.rows
+            claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
+            claudeErrorMessage = nil
+        } else {
+            claudeTrayTitle = "!"
+            claudeErrorMessage = snapshot.claudeErrorMessage
         }
     }
 }

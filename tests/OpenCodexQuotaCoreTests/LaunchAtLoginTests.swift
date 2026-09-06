@@ -1,5 +1,5 @@
 import XCTest
-@testable import PauseWorkerCore
+@testable import OpenCodexQuotaCore
 
 @MainActor
 final class LaunchAtLoginTests: XCTestCase {

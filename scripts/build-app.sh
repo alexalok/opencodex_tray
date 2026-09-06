@@ -75,7 +75,6 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   build
 cp -R "$PRODUCT_APP" "$APP"
-
 if [[ "$NOTARIZE" == "1" ]]; then
   codesign --force --options runtime --timestamp \
     --entitlements "$WIDGET_ENTITLEMENTS" \

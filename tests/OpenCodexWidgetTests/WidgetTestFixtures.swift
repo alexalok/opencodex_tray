@@ -1,5 +1,5 @@
 import Foundation
-import PauseWorkerCore
+import OpenCodexQuotaCore
 
 let widgetTestDate = Date(timeIntervalSince1970: 1_788_231_600)
 
@@ -54,7 +54,7 @@ func makeCompleteSnapshot() -> QuotaSnapshot {
 }
 
 func makeCompleteLoad() -> QuotaSnapshotLoad {
-    QuotaSnapshotLoad(snapshot: makeCompleteSnapshot(), codexAccounts: [])
+    QuotaSnapshotLoad(snapshot: makeCompleteSnapshot())
 }
 
 func makeThreeAccountSnapshot() -> QuotaSnapshot {

@@ -32,11 +32,9 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
 
 public struct QuotaSnapshotLoad: Equatable, Sendable {
     public let snapshot: QuotaSnapshot
-    public let codexAccounts: [OpenCodexAccount]?
 
-    public init(snapshot: QuotaSnapshot, codexAccounts: [OpenCodexAccount]?) {
+    public init(snapshot: QuotaSnapshot) {
         self.snapshot = snapshot
-        self.codexAccounts = codexAccounts
     }
 }
 
@@ -46,19 +44,13 @@ public protocol QuotaSnapshotLoading: Sendable {
 
 public struct QuotaSnapshotLoader: QuotaSnapshotLoading {
     private let client: any OpenCodexQuotaServing
-    private let targetAlias: String
-    private let thresholdPercent: Double
     private let now: @Sendable () -> Date
 
     public init(
         client: any OpenCodexQuotaServing,
-        targetAlias: String,
-        thresholdPercent: Double,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.client = client
-        self.targetAlias = targetAlias
-        self.thresholdPercent = thresholdPercent
         self.now = now
     }
 
@@ -73,22 +65,19 @@ public struct QuotaSnapshotLoader: QuotaSnapshotLoading {
                 codexErrorMessage: codexResult.errorMessage,
                 claudeSummary: claudeResult.summary,
                 claudeErrorMessage: claudeResult.errorMessage
-            ),
-            codexAccounts: codexResult.accounts
+            )
         )
     }
 
     private func loadCodex() async -> CodexLoadResult {
         do {
             let accounts = try await client.fetchAccounts()
-            let summary = try QuotaCalculator.summarize(
-                accounts: accounts,
-                targetAlias: targetAlias,
-                thresholdPercent: thresholdPercent
+            return CodexLoadResult(
+                summary: QuotaCalculator.summarize(accounts: accounts),
+                errorMessage: nil
             )
-            return CodexLoadResult(summary: summary, accounts: accounts, errorMessage: nil)
         } catch {
-            return CodexLoadResult(summary: nil, accounts: nil, errorMessage: error.localizedDescription)
+            return CodexLoadResult(summary: nil, errorMessage: error.localizedDescription)
         }
     }
 
@@ -107,7 +96,6 @@ public struct QuotaSnapshotLoader: QuotaSnapshotLoading {
 
 private struct CodexLoadResult: Sendable {
     let summary: QuotaSummary?
-    let accounts: [OpenCodexAccount]?
     let errorMessage: String?
 }
 

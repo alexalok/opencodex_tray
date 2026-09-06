@@ -1,9 +1,9 @@
 import Foundation
 import XCTest
-@testable import PauseWorkerCore
+@testable import OpenCodexQuotaCore
 
 final class WidgetConfigurationStoreTests: XCTestCase {
-    func testRoundTripsWidgetConnectionConfigurationWithPrivatePermissions() throws {
+    func testRoundTripsReadOnlyWidgetConnectionWithPrivatePermissions() throws {
         let container = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: container) }
@@ -11,8 +11,6 @@ final class WidgetConfigurationStoreTests: XCTestCase {
         let configuration = WidgetConnectionConfiguration(
             baseURL: URL(string: "http://127.0.0.1:10100")!,
             adminToken: "secret-token",
-            targetAlias: "workmate",
-            thresholdPercent: 70,
             requestTimeout: 30
         )
 
