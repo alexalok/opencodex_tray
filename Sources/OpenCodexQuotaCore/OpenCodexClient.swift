@@ -72,7 +72,12 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
 
 public enum OpenCodexResponseDecoder {
     public static func decodeAccounts(_ data: Data) throws -> [OpenCodexAccount] {
-        try JSONDecoder().decode(AccountsResponse.self, from: data).accounts.map { dto in
+        let accounts = try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
+        let poolKeys = Set(accounts.filter { $0.isMain != true }.compactMap(\.quotaMatchKey))
+        return accounts.filter { dto in
+            guard dto.isMain == true, let key = dto.quotaMatchKey else { return true }
+            return !poolKeys.contains(key)
+        }.map { dto in
             OpenCodexAccount(
                 id: dto.id,
                 alias: dto.alias,
@@ -113,13 +118,32 @@ private struct AccountsResponse: Decodable { let accounts: [AccountDTO] }
 private struct AccountDTO: Decodable {
     let id: String
     let alias: String?
+    let email: String?
     let plan: String?
     let isMain: Bool?
     let quota: QuotaDTO?
+
+    var quotaMatchKey: AccountQuotaMatchKey? {
+        // OpenCodex omits upstream account IDs and may mask email addresses.
+        // Require the same subscription and reset window before hiding main;
+        // usage percentages can differ between independently refreshed copies.
+        guard let email = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              email.contains("@"),
+              let plan = plan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !plan.isEmpty,
+              let weeklyResetAt = quota?.weeklyResetAt, weeklyResetAt > 0 else { return nil }
+        return AccountQuotaMatchKey(email: email, plan: plan, weeklyResetAt: weeklyResetAt)
+    }
+}
+private struct AccountQuotaMatchKey: Hashable {
+    let email: String
+    let plan: String
+    let weeklyResetAt: Double
 }
 private struct QuotaDTO: Decodable {
     let fiveHourPercent: Double?
     let weeklyPercent: Double?
+    let weeklyResetAt: Double?
 }
 private struct ClaudeAccountsResponse: Decodable { let accounts: [ClaudeAccountDTO] }
 private struct ClaudeAccountDTO: Decodable {
