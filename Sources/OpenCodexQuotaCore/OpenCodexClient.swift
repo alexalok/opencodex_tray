@@ -73,10 +73,10 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
 public enum OpenCodexResponseDecoder {
     public static func decodeAccounts(_ data: Data) throws -> [OpenCodexAccount] {
         let accounts = try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
-        let poolKeys = Set(accounts.filter { $0.isMain != true }.compactMap(\.quotaMatchKey))
+        let poolMatches = accounts.filter { $0.isMain != true }.compactMap(\.quotaMatch)
         return accounts.filter { dto in
-            guard dto.isMain == true, let key = dto.quotaMatchKey else { return true }
-            return !poolKeys.contains(key)
+            guard dto.isMain == true, let match = dto.quotaMatch else { return true }
+            return !poolMatches.contains { $0.matches(match) }
         }.map { dto in
             OpenCodexAccount(
                 id: dto.id,
@@ -123,7 +123,7 @@ private struct AccountDTO: Decodable {
     let isMain: Bool?
     let quota: QuotaDTO?
 
-    var quotaMatchKey: AccountQuotaMatchKey? {
+    var quotaMatch: AccountQuotaMatch? {
         // OpenCodex omits upstream account IDs and may mask email addresses.
         // Require the same subscription and reset window before hiding main;
         // usage percentages can differ between independently refreshed copies.
@@ -132,13 +132,20 @@ private struct AccountDTO: Decodable {
               let plan = plan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
               !plan.isEmpty,
               let weeklyResetAt = quota?.weeklyResetAt, weeklyResetAt > 0 else { return nil }
-        return AccountQuotaMatchKey(email: email, plan: plan, weeklyResetAt: weeklyResetAt)
+        return AccountQuotaMatch(email: email, plan: plan, weeklyResetAt: weeklyResetAt)
     }
 }
-private struct AccountQuotaMatchKey: Hashable {
+private struct AccountQuotaMatch {
     let email: String
     let plan: String
     let weeklyResetAt: Double
+
+    func matches(_ other: AccountQuotaMatch) -> Bool {
+        // Streaming headers and the usage API can report the same reset a second apart.
+        // Compare directly: rounding into buckets would still fail at bucket boundaries.
+        email == other.email && plan == other.plan
+            && abs(weeklyResetAt - other.weeklyResetAt) <= 2
+    }
 }
 private struct QuotaDTO: Decodable {
     let fiveHourPercent: Double?

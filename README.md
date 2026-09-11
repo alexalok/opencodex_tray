@@ -18,12 +18,14 @@ turns its per-account quota data into at-a-glance pool totals.
 
 When the Codex main login also appears in the pool, the named pool entry takes
 precedence in both the menu and widget. The duplicate `main` row and allowance
-are excluded. Matching requires the same email, plan, and weekly reset timestamp;
-email and plan comparisons ignore case and surrounding whitespace. OpenCodex may
-mask emails and does not expose upstream account IDs, so this is a conservative
-match using the available metadata. Missing match fields leave `main` visible.
+are excluded. Matching requires the same email and plan, with weekly reset
+timestamps within two seconds to allow for differences between streaming headers
+and usage API snapshots. Email and plan comparisons ignore case and surrounding
+whitespace. OpenCodex may mask emails and does not expose upstream account IDs,
+so this is a conservative match using the available metadata. Missing match
+fields leave `main` visible.
 If a refresh straddles the weekly reset, `main` can reappear until both copies
-report the same new reset timestamp.
+report matching new reset timestamps.
 
 Every account has `100` native allowance. Display converts all values to
 Pro-equivalent units: `pro = 1`, `prolite = 0.25` because one Pro percentage
