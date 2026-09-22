@@ -8,7 +8,7 @@ public enum DisplayFormatter {
     public static func row(_ allowance: AccountAllowance) -> String {
         let remaining = allowance.remainingPercent.map(format) ?? "—"
         let total = allowance.totalPercent.map(format) ?? "—"
-        return "\(allowance.label): \(remaining)%/\(total)%"
+        return "\(allowance.label): \(remaining)%/\(total)%" + (allowance.paused ? " (paused)" : "")
     }
 
     public static func claudeTrayTitle(_ summary: ClaudeQuotaSummary) -> String {

@@ -272,12 +272,14 @@ private struct ProviderColumn: View {
                     ForEach(provider.rows) { row in
                         HStack(spacing: 6) {
                             Text(row.label)
+                                .strikethrough(row.paused)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer(minLength: 4)
                             Text(row.value)
+                                .strikethrough(row.paused)
                                 .font(.caption)
                                 .monospacedDigit()
                                 .lineLimit(1)

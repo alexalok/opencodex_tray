@@ -18,7 +18,9 @@ turns its per-account quota data into at-a-glance pool totals.
 
 When the Codex main login also appears in the pool, the named pool entry takes
 precedence in both the menu and widget. The duplicate `main` row and allowance
-are excluded. Matching requires the same email and plan, with weekly reset
+are excluded even when pause flags differ; the named pool entry determines
+whether that account contributes to totals. Matching requires the same email
+and plan, with weekly reset
 timestamps within two seconds to allow for differences between streaming headers
 and usage API snapshots. Email and plan comparisons ignore case and surrounding
 whitespace. OpenCodex may mask emails and does not expose upstream account IDs,
@@ -34,7 +36,7 @@ point equals four ProLite percentage points.
 ```text
 native remaining = max(native allowance - weekly usage, 0)
 Pro-equivalent value = native value * plan factor
-tray = floor(sum(Pro-equivalent remaining))
+tray = floor(sum(Pro-equivalent remaining for unpaused accounts))
 ```
 
 Example:
@@ -48,7 +50,11 @@ tray: floor(0 + 11.75) = 11%
 Tray total represents absolute Pro-equivalent allowance, not ratio. Multiple
 accounts can therefore produce values above `100%`.
 
-Missing weekly quota or unknown plan displays `—` and makes tray total `—`
+Paused Codex accounts remain visible with strikethrough and `(paused)` at the end,
+but contribute nothing to pool totals. An entirely paused pool displays `0%`.
+Pause status is read from OpenCodex; the tray does not change it.
+
+Missing weekly quota or unknown plan in an unpaused account displays `—` and makes tray total `—`
 rather than inventing capacity.
 
 Claude converts OpenCodex's raw per-account Anthropic utilization to remaining

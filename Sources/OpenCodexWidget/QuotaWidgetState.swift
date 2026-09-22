@@ -35,6 +35,7 @@ struct QuotaWidgetRowModel: Equatable, Identifiable {
     let label: String
     let value: String
     let accessibilityLabel: String
+    var paused: Bool = false
 }
 
 struct QuotaWidgetProviderModel: Equatable {
@@ -155,11 +156,13 @@ struct QuotaWidgetViewModel: Equatable {
                 QuotaWidgetRowModel(
                     id: $0.id,
                     label: $0.label,
-                    value: DisplayFormatter.codexAllowance($0),
+                    value: DisplayFormatter.codexAllowance($0) + ($0.paused ? " (paused)" : ""),
                     accessibilityLabel: "Codex \($0.label), remaining: "
                         + QuotaSpokenText.percent($0.remainingPercent)
                         + " of "
                         + QuotaSpokenText.percent($0.totalPercent)
+                        + ($0.paused ? ", paused" : ""),
+                    paused: $0.paused
                 )
             },
             overflowCount: max(summary.rows.count - 2, 0),

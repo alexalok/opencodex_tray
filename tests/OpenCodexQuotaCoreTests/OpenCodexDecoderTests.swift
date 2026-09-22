@@ -159,6 +159,67 @@ final class OpenCodexDecoderTests: XCTestCase {
         ])
     }
 
+    func testPausedAccountsRemainVisibleButDoNotContributeToTrayTotal() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"active","alias":"work","plan":"pro","paused":false,"quota":{"weeklyPercent":20}}"#,
+            #"{"id":"paused","alias":"personal","plan":"prolite","paused":true,"quota":{"weeklyPercent":12}}"#,
+        ])
+        let summary = QuotaCalculator.summarize(accounts: accounts)
+
+        XCTAssertEqual(summary.trayPercentage, 80)
+        XCTAssertEqual(summary.rows.count, 2)
+        XCTAssertEqual(summary.rows[1].remainingPercent, 22)
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "personal: 22%/25% (paused)")
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "work: 80%/100%")
+        let restored = try JSONDecoder().decode(QuotaSummary.self, from: JSONEncoder().encode(summary))
+        XCTAssertEqual(DisplayFormatter.row(restored.rows[1]), "personal: 22%/25% (paused)")
+    }
+
+    func testPausedUnknownQuotaOrPlanDoesNotMakeActiveTotalUnknown() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"active","plan":"pro","quota":{"weeklyPercent":20}}"#,
+            #"{"id":"paused-missing","plan":"pro","paused":true}"#,
+            #"{"id":"paused-unknown","plan":"future","paused":true,"quota":{"weeklyPercent":10}}"#,
+        ])
+        let summary = QuotaCalculator.summarize(accounts: accounts)
+
+        XCTAssertEqual(summary.trayPercentage, 80)
+        XCTAssertEqual(summary.rows.count, 3)
+        XCTAssertNil(summary.rows[1].remainingPercent)
+        XCTAssertNil(summary.rows[2].totalPercent)
+        XCTAssertEqual(QuotaCalculator.summarize(accounts: Array(accounts.dropFirst())).trayPercentage, 0)
+    }
+
+    func testPoolAccountReplacesDuplicateMainRegardlessOfPauseStateOrOrder() throws {
+        for mainPaused in [true, false] {
+            for poolPaused in [true, false] {
+                let fields = #""email":"p***l@example.com","plan":"pro","quota":{"weeklyPercent":14,"weeklyResetAt":1789000000}"#
+                let main = "{\"id\":\"main\",\"isMain\":true,\"paused\":\(mainPaused),\(fields)}"
+                let pool = "{\"id\":\"pool\",\"alias\":\"personal\",\"paused\":\(poolPaused),\(fields)}"
+                for payload in [[main, pool], [pool, main]] {
+                    let accounts = try decodeCodexAccounts(payload)
+                    let summary = QuotaCalculator.summarize(accounts: accounts)
+
+                    XCTAssertEqual(accounts.map(\.id), ["pool"])
+                    XCTAssertEqual(summary.rows.count, 1)
+                    XCTAssertEqual(summary.rows.first?.paused, poolPaused)
+                    XCTAssertEqual(summary.trayPercentage, poolPaused ? 0 : 86)
+                    XCTAssertEqual(
+                        summary.rows.first.map(DisplayFormatter.row),
+                        poolPaused ? "personal: 86%/100% (paused)" : "personal: 86%/100%"
+                    )
+                }
+            }
+        }
+    }
+
+    func testLegacyCachedRowsStillDecodeAsUnpaused() throws {
+        let data = Data(#"{"trayPercentage":80,"rows":[{"accountId":"old","label":"old","remainingPercent":80,"totalPercent":100}]}"#.utf8)
+        let summary = try JSONDecoder().decode(QuotaSummary.self, from: data)
+
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "old: 80%/100%")
+    }
+
     private func decodeCodexAccounts(_ accounts: [String]) throws -> [OpenCodexAccount] {
         try OpenCodexResponseDecoder.decodeAccounts(
             Data("{\"accounts\":[\(accounts.joined(separator: ","))]}".utf8)
