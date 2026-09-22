@@ -5,6 +5,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let alias: String?
     public let plan: String?
     public let isMain: Bool
+    public let paused: Bool
     public let weeklyUsedPercent: Double?
 
     public init(
@@ -12,12 +13,14 @@ public struct OpenCodexAccount: Equatable, Sendable {
         alias: String?,
         plan: String?,
         isMain: Bool,
+        paused: Bool = false,
         weeklyUsedPercent: Double?
     ) {
         self.id = id
         self.alias = alias
         self.plan = plan
         self.isMain = isMain
+        self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
     }
 }
@@ -48,14 +51,30 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
     public var id: String { accountId }
     public let accountId: String
     public let label: String
+    public let paused: Bool
     public let remainingPercent: Double?
     public let totalPercent: Double?
 
-    public init(accountId: String, label: String, remainingPercent: Double?, totalPercent: Double?) {
+    public init(accountId: String, label: String, paused: Bool = false, remainingPercent: Double?, totalPercent: Double?) {
         self.accountId = accountId
         self.label = label
+        self.paused = paused
         self.remainingPercent = remainingPercent
         self.totalPercent = totalPercent
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case accountId, label, paused, remainingPercent, totalPercent
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        accountId = try values.decode(String.self, forKey: .accountId)
+        label = try values.decode(String.self, forKey: .label)
+        // Older widget snapshots predate pause-state display.
+        paused = try values.decodeIfPresent(Bool.self, forKey: .paused) ?? false
+        remainingPercent = try values.decodeIfPresent(Double.self, forKey: .remainingPercent)
+        totalPercent = try values.decodeIfPresent(Double.self, forKey: .totalPercent)
     }
 }
 
@@ -117,15 +136,17 @@ public enum QuotaCalculator {
             return AccountAllowance(
                 accountId: account.id,
                 label: label,
+                paused: account.paused,
                 remainingPercent: remaining,
                 totalPercent: total
             )
         }
 
-        guard rows.allSatisfy({ $0.remainingPercent != nil && $0.totalPercent != nil }) else {
+        let activeRows = rows.filter { !$0.paused }
+        guard activeRows.allSatisfy({ $0.remainingPercent != nil && $0.totalPercent != nil }) else {
             return QuotaSummary(trayPercentage: nil, rows: rows)
         }
-        let percentage = floorStable(rows.reduce(0) { $0 + ($1.remainingPercent ?? 0) })
+        let percentage = floorStable(activeRows.reduce(0) { $0 + ($1.remainingPercent ?? 0) })
         return QuotaSummary(trayPercentage: percentage, rows: rows)
     }
 

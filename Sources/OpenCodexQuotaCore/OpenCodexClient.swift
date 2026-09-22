@@ -76,6 +76,7 @@ public enum OpenCodexResponseDecoder {
         let poolMatches = accounts.filter { $0.isMain != true }.compactMap(\.quotaMatch)
         return accounts.filter { dto in
             guard dto.isMain == true, let match = dto.quotaMatch else { return true }
+            // The named pool entry owns display and pause state for duplicate main logins.
             return !poolMatches.contains { $0.matches(match) }
         }.map { dto in
             OpenCodexAccount(
@@ -83,6 +84,7 @@ public enum OpenCodexResponseDecoder {
                 alias: dto.alias,
                 plan: dto.plan,
                 isMain: dto.isMain ?? false,
+                paused: dto.paused ?? false,
                 weeklyUsedPercent: dto.quota?.weeklyPercent
             )
         }
@@ -121,6 +123,7 @@ private struct AccountDTO: Decodable {
     let email: String?
     let plan: String?
     let isMain: Bool?
+    let paused: Bool?
     let quota: QuotaDTO?
 
     var quotaMatch: AccountQuotaMatch? {

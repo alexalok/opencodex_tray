@@ -29,6 +29,7 @@ struct OpenCodexTrayApp: App {
                 } else {
                     ForEach(model.codexRows) { row in
                         Text(DisplayFormatter.row(row))
+                            .strikethrough(row.paused)
                     }
                 }
             }
