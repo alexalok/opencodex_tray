@@ -29,7 +29,15 @@ fields leave `main` visible.
 If a refresh straddles the weekly reset, `main` can reappear until both copies
 report matching new reset timestamps.
 
-Every account has `100` native allowance. Display converts all values to
+Codex native allowance uses each account's `autoSwitchThresholdOverride`, falling
+back to the global `autoSwitchThreshold` from `/api/codex-auth/active` when the
+override is absent, null, or invalid. Public OpenCodex versions without per-account
+overrides therefore use the global setting. If the global setting cannot be read,
+accounts without a valid override retain `100` native allowance. Threshold `0`
+disables auto-switching and also means `100` allowance. Thresholds must be integers
+from `0` to `100`; malformed optional fields do not break quota refresh.
+
+Display converts all values to
 Pro-equivalent units: `pro = 1`, `prolite = 0.25` because one Pro percentage
 point equals four ProLite percentage points.
 
@@ -39,7 +47,12 @@ Pro-equivalent value = native value * plan factor
 tray = floor(sum(Pro-equivalent remaining for unpaused accounts))
 ```
 
-Example:
+For example, a ProLite account with a `50%` threshold has `12.5%` total
+Pro-equivalent allowance (`25% × 0.5`). With `20%` native weekly usage, its row
+shows `7.5% / 12.5%`. Remaining allowance clamps to zero at the threshold.
+Menu-bar and widget totals use the same adjusted values.
+
+Example with auto-switching disabled:
 
 ```text
 main (Pro): 0%/100%
