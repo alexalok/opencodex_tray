@@ -7,6 +7,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let isMain: Bool
     public let paused: Bool
     public let weeklyUsedPercent: Double?
+    public let autoSwitchThreshold: Double?
 
     public init(
         id: String,
@@ -14,7 +15,8 @@ public struct OpenCodexAccount: Equatable, Sendable {
         plan: String?,
         isMain: Bool,
         paused: Bool = false,
-        weeklyUsedPercent: Double?
+        weeklyUsedPercent: Double?,
+        autoSwitchThreshold: Double? = nil
     ) {
         self.id = id
         self.alias = alias
@@ -22,6 +24,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
         self.isMain = isMain
         self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
+        self.autoSwitchThreshold = autoSwitchThreshold
     }
 }
 
@@ -128,9 +131,12 @@ public enum QuotaCalculator {
     public static func summarize(accounts: [OpenCodexAccount]) -> QuotaSummary {
         let rows = accounts.map { account in
             let factor = proEquivalentFactor(plan: account.plan)
-            let total = factor.map { 100 * $0 }
+            // Zero disables auto-switching; absent thresholds preserve full allowance.
+            let threshold = account.autoSwitchThreshold ?? 100
+            let nativeTotal = threshold > 0 && threshold <= 100 ? threshold : 100
+            let total = factor.map { nativeTotal * $0 }
             let remaining = account.weeklyUsedPercent.flatMap { used in
-                factor.map { max(100 - max(used, 0), 0) * $0 }
+                factor.map { max(nativeTotal - max(used, 0), 0) * $0 }
             }
             let label = account.alias ?? (account.isMain ? "main" : account.id)
             return AccountAllowance(

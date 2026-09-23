@@ -28,11 +28,25 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
         request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let data = try await send(request, operation: "accounts")
+        // Public/older servers may omit this optional setting or endpoint entirely.
+        let globalThreshold = await fetchGlobalAutoSwitchThreshold()
         do {
-            return try OpenCodexResponseDecoder.decodeAccounts(data)
+            return try OpenCodexResponseDecoder.decodeAccounts(data, globalAutoSwitchThreshold: globalThreshold)
         } catch {
             throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid account response")
         }
+    }
+
+    private func fetchGlobalAutoSwitchThreshold() async -> Double? {
+        var request = URLRequest(url: endpoint("/api/codex-auth/active"))
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let data = try? await send(request, operation: "auto-switch settings"),
+              let settings = try? JSONDecoder().decode(ActiveAccountResponse.self, from: data) else {
+            return nil
+        }
+        return settings.autoSwitchThreshold?.value
     }
 
     public func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
@@ -71,7 +85,10 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
 }
 
 public enum OpenCodexResponseDecoder {
-    public static func decodeAccounts(_ data: Data) throws -> [OpenCodexAccount] {
+    public static func decodeAccounts(
+        _ data: Data,
+        globalAutoSwitchThreshold: Double? = nil
+    ) throws -> [OpenCodexAccount] {
         let accounts = try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
         let poolMatches = accounts.filter { $0.isMain != true }.compactMap(\.quotaMatch)
         return accounts.filter { dto in
@@ -85,7 +102,8 @@ public enum OpenCodexResponseDecoder {
                 plan: dto.plan,
                 isMain: dto.isMain ?? false,
                 paused: dto.paused ?? false,
-                weeklyUsedPercent: dto.quota?.weeklyPercent
+                weeklyUsedPercent: dto.quota?.weeklyPercent,
+                autoSwitchThreshold: dto.autoSwitchThresholdOverride?.value ?? globalAutoSwitchThreshold
             )
         }
     }
@@ -124,6 +142,7 @@ private struct AccountDTO: Decodable {
     let plan: String?
     let isMain: Bool?
     let paused: Bool?
+    let autoSwitchThresholdOverride: AutoSwitchThresholdDTO?
     let quota: QuotaDTO?
 
     var quotaMatch: AccountQuotaMatch? {
@@ -161,4 +180,23 @@ private struct ClaudeAccountDTO: Decodable {
     let alias: String?
     let email: String?
     let quota: QuotaDTO?
+}
+
+private struct ActiveAccountResponse: Decodable {
+    let autoSwitchThreshold: AutoSwitchThresholdDTO?
+}
+
+/// Optional extension fields must never invalidate an otherwise usable account response.
+private struct AutoSwitchThresholdDTO: Decodable {
+    let value: Double?
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let number = try? container.decode(Double.self),
+           number.isFinite, number.rounded() == number, (0...100).contains(number) {
+            value = number
+        } else {
+            value = nil
+        }
+    }
 }

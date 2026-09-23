@@ -60,6 +60,8 @@ final class OpenCodexClientTests: XCTestCase {
             switch request.url?.path {
             case "/api/codex-auth/accounts":
                 data = Data(#"{"accounts":[{"id":"friend-id","alias":"workmate","plan":"prolite","isMain":false,"quota":{"weeklyPercent":70}}]}"#.utf8)
+            case "/api/codex-auth/active":
+                data = Data(#"{"autoSwitchThreshold":0}"#.utf8)
             case "/api/oauth/accounts":
                 data = Data(#"{"accounts":[]}"#.utf8)
             default:
@@ -80,6 +82,7 @@ final class OpenCodexClientTests: XCTestCase {
 
         XCTAssertEqual(StubURLProtocol.requests().sorted(), [
             "GET /api/codex-auth/accounts?refresh=1",
+            "GET /api/codex-auth/active",
             "GET /api/oauth/accounts?provider=anthropic&quota=1&refresh=1",
         ])
         XCTAssertEqual(result.snapshot.codexSummary?.rows, [
@@ -90,6 +93,40 @@ final class OpenCodexClientTests: XCTestCase {
                 totalPercent: 25
             ),
         ])
+    }
+
+    func testAccountThresholdPrecedenceAndPublicFallback() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = OpenCodexClient(baseURL: URL(string: "https://opencodex.example")!,
+                                     adminToken: "admin-secret", timeout: 5, session: session)
+        for (status, globalBody, inheritedTotal) in [
+            (200, #"{"autoSwitchThreshold":80}"#, 20.0),
+            (200, #"{"autoSwitchThreshold":0}"#, 25.0),
+            (200, #"{"autoSwitchThreshold":"bad"}"#, 25.0),
+            (200, #"{"autoSwitchThreshold":101}"#, 25.0),
+            (200, "{}", 25.0),
+            (200, "not json", 25.0),
+            (404, "", 25.0),
+            (500, "", 25.0),
+            (-1, "", 25.0),
+        ] {
+            StubURLProtocol.handler = { request in
+                XCTAssertEqual(request.httpMethod, "GET")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer admin-secret")
+                let isGlobal = request.url?.path == "/api/codex-auth/active"
+                if isGlobal && status == -1 { throw URLError(.timedOut) }
+                let body = isGlobal ? globalBody : #"{"accounts":[{"id":"override","plan":"prolite","autoSwitchThresholdOverride":50,"quota":{"weeklyPercent":20}},{"id":"public","plan":"prolite","quota":{"weeklyPercent":20}},{"id":"inherit","plan":"prolite","autoSwitchThresholdOverride":null,"quota":{"weeklyPercent":20}},{"id":"invalid","plan":"prolite","autoSwitchThresholdOverride":"bad","quota":{"weeklyPercent":20}},{"id":"disabled","plan":"prolite","autoSwitchThresholdOverride":0,"quota":{"weeklyPercent":20}}]}"#
+                return (HTTPURLResponse(url: request.url!, statusCode: isGlobal ? status : 200,
+                                        httpVersion: nil, headerFields: nil)!, Data(body.utf8))
+            }
+            let accounts = try await client.fetchAccounts()
+            let summary = QuotaCalculator.summarize(accounts: accounts)
+            XCTAssertEqual(summary.rows.map(\.totalPercent), [12.5, inheritedTotal, inheritedTotal, inheritedTotal, 25])
+            XCTAssertEqual(summary.rows.map(\.remainingPercent), [7.5, inheritedTotal - 5, inheritedTotal - 5, inheritedTotal - 5, 20])
+            XCTAssertEqual(summary.trayPercentage, Int(floor(27.5 + 3 * (inheritedTotal - 5))))
+        }
     }
 
     func testFetchClaudeAccountsUsesAnthropicPerAccountQuotaEndpoint() async throws {
