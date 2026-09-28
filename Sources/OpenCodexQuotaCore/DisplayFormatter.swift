@@ -11,6 +11,16 @@ public enum DisplayFormatter {
         return "\(allowance.label): \(remaining)%/\(total)%" + (allowance.paused ? " (paused)" : "")
     }
 
+    public static func resetExpiry(_ allowance: AccountAllowance, now: Date) -> String? {
+        guard let expiry = allowance.expiringReset(at: now) else { return nil }
+        let minutes = Int(expiry.timeIntervalSince(now) / 60)
+        let days = minutes / 1440
+        let hours = minutes / 60 % 24
+        if days > 0 { return "exp in \(days)d" + (hours > 0 ? " \(hours)h" : "") }
+        if hours > 0 { return "exp in \(hours)h" + (minutes % 60 > 0 ? " \(minutes % 60)m" : "") }
+        return minutes > 0 ? "exp in \(minutes)m" : "exp in <1m"
+    }
+
     public static func claudeTrayTitle(_ summary: ClaudeQuotaSummary) -> String {
         "\(percentage(summary.fiveHourRemainingPercentage))/\(percentage(summary.weeklyRemainingPercentage))"
     }

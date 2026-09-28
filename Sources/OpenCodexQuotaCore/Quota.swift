@@ -7,6 +7,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let isMain: Bool
     public let paused: Bool
     public let weeklyUsedPercent: Double?
+    public var resetCreditExpirations: [Date]?
 
     public init(
         id: String,
@@ -14,7 +15,8 @@ public struct OpenCodexAccount: Equatable, Sendable {
         plan: String?,
         isMain: Bool,
         paused: Bool = false,
-        weeklyUsedPercent: Double?
+        weeklyUsedPercent: Double?,
+        resetCreditExpirations: [Date]? = nil
     ) {
         self.id = id
         self.alias = alias
@@ -22,6 +24,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
         self.isMain = isMain
         self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
+        self.resetCreditExpirations = resetCreditExpirations
     }
 }
 
@@ -54,17 +57,26 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
     public let paused: Bool
     public let remainingPercent: Double?
     public let totalPercent: Double?
+    public let resetCreditExpirations: [Date]?
 
-    public init(accountId: String, label: String, paused: Bool = false, remainingPercent: Double?, totalPercent: Double?) {
+    public init(accountId: String, label: String, paused: Bool = false, remainingPercent: Double?, totalPercent: Double?, resetCreditExpirations: [Date]? = nil) {
         self.accountId = accountId
         self.label = label
         self.paused = paused
         self.remainingPercent = remainingPercent
         self.totalPercent = totalPercent
+        self.resetCreditExpirations = resetCreditExpirations
+    }
+
+    public func expiringReset(at now: Date) -> Date? {
+        resetCreditExpirations?.filter {
+            let remaining = $0.timeIntervalSince(now)
+            return remaining > 0 && remaining < 7 * 24 * 60 * 60
+        }.min()
     }
 
     private enum CodingKeys: String, CodingKey {
-        case accountId, label, paused, remainingPercent, totalPercent
+        case accountId, label, paused, remainingPercent, totalPercent, resetCreditExpirations
     }
 
     public init(from decoder: any Decoder) throws {
@@ -75,6 +87,7 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
         paused = try values.decodeIfPresent(Bool.self, forKey: .paused) ?? false
         remainingPercent = try values.decodeIfPresent(Double.self, forKey: .remainingPercent)
         totalPercent = try values.decodeIfPresent(Double.self, forKey: .totalPercent)
+        resetCreditExpirations = try values.decodeIfPresent([Date].self, forKey: .resetCreditExpirations)
     }
 }
 
@@ -138,7 +151,8 @@ public enum QuotaCalculator {
                 label: label,
                 paused: account.paused,
                 remainingPercent: remaining,
-                totalPercent: total
+                totalPercent: total,
+                resetCreditExpirations: account.resetCreditExpirations
             )
         }
 

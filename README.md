@@ -54,6 +54,14 @@ Paused Codex accounts remain visible with strikethrough and `(paused)` at the en
 but contribute nothing to pool totals. An entirely paused pool displays `0%`.
 Pause status is read from OpenCodex; the tray does not change it.
 
+A ticket icon and `!` appear beside Codex usage when an account has a banked
+reset expiring in less than seven days. Its dropdown row shows `(🎟 exp in 2d 3h)`
+using the nearest unexpired reset. Paused accounts also qualify. Countdowns
+update every minute; expired resets and resets exactly seven days away are excluded.
+Expiry dates come from OpenCodex's read-only reset-credit endpoint for each account,
+since the usage response can contain a stale reset count. A failed lookup leaves
+quota visible without an expiry indicator. The app never redeems reset credits.
+
 Missing weekly quota or unknown plan in an unpaused account displays `—` and makes tray total `—`
 rather than inventing capacity.
 

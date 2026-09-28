@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Darwin
 import OpenCodexQuotaCore
 import OSLog
@@ -28,8 +29,12 @@ struct OpenCodexTrayApp: App {
                     Text(model.errorMessage == nil ? "Loading…" : "Unavailable")
                 } else {
                     ForEach(model.codexRows) { row in
-                        Text(DisplayFormatter.row(row))
-                            .strikethrough(row.paused)
+                        if let expiry = DisplayFormatter.resetExpiry(row, now: model.displayDate) {
+                            Text(DisplayFormatter.row(row)).strikethrough(row.paused)
+                                + Text(" (\(Image(systemName: "ticket")) \(expiry))")
+                        } else {
+                            Text(DisplayFormatter.row(row)).strikethrough(row.paused)
+                        }
                     }
                 }
             }
@@ -75,7 +80,9 @@ struct OpenCodexTrayApp: App {
             TrayStatusLabel(
                 claudeLimits: model.claudeTrayTitle,
                 codexPercentage: model.codexTrayTitle,
+                hasExpiringReset: model.hasExpiringReset,
                 accessibilityLabel: model.trayAccessibilityLabel
+                    + (model.hasExpiringReset ? ", banked reset expires in less than 7 days" : "")
             )
         }
         .menuBarExtraStyle(.menu)
@@ -86,6 +93,7 @@ struct OpenCodexTrayApp: App {
 private struct TrayStatusLabel: View {
     let claudeLimits: String
     let codexPercentage: String
+    let hasExpiringReset: Bool
     let accessibilityLabel: String
 
     @ViewBuilder
@@ -97,10 +105,11 @@ private struct TrayStatusLabel: View {
                 claudeLimits: claudeLimits,
                 codexIcon: codexIcon,
                 codexPercentage: codexPercentage,
+                hasExpiringReset: hasExpiringReset,
                 accessibilityLabel: accessibilityLabel
             )
         } else {
-            Text("Claude \(claudeLimits)  Codex \(codexPercentage)")
+            Text("Claude \(claudeLimits)  Codex \(codexPercentage)\(hasExpiringReset ? " 🎟 !" : "")")
                 .monospacedDigit()
                 .accessibilityLabel(accessibilityLabel)
         }
@@ -111,6 +120,7 @@ private struct TrayStatusLabel: View {
         claudeLimits: String,
         codexIcon: CGImage,
         codexPercentage: String,
+        hasExpiringReset: Bool,
         accessibilityLabel: String
     ) -> Image {
         let height: CGFloat = 16
@@ -122,8 +132,9 @@ private struct TrayStatusLabel: View {
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
         let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
         let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
+        let warningWidth: CGFloat = hasExpiringReset ? iconTextGap + iconSize + iconTextGap + 6 : 0
         let width = iconSize + iconTextGap + claudeTextWidth
-            + groupGap + iconSize + iconTextGap + codexTextWidth
+            + groupGap + iconSize + iconTextGap + codexTextWidth + warningWidth
         let textFont = Font.system(size: fontSize).monospacedDigit()
 
         return Image(size: CGSize(width: width, height: height), label: Text(accessibilityLabel)) { context in
@@ -158,6 +169,15 @@ private struct TrayStatusLabel: View {
                 at: CGPoint(x: codexIconX + iconSize + iconTextGap, y: height / 2),
                 anchor: .leading
             )
+            if hasExpiringReset {
+                let ticketX = codexIconX + iconSize + iconTextGap + codexTextWidth + iconTextGap
+                var ticket = context.resolve(Image(systemName: "ticket"))
+                ticket.shading = .color(.white)
+                context.draw(ticket, in: CGRect(x: ticketX, y: 1, width: iconSize, height: iconSize))
+                var mark = context.resolve(Text("!").font(textFont))
+                mark.shading = .color(.white)
+                context.draw(mark, at: CGPoint(x: ticketX + iconSize + iconTextGap, y: height / 2), anchor: .leading)
+            }
         }
         .renderingMode(.template)
     }
@@ -219,6 +239,15 @@ final class TrayViewModel: ObservableObject {
         category: "widget-configuration"
     )
 
+    // Native menu-bar labels need a direct Image/Text view. Drive time updates
+    // through observable state instead of wrapping menu content in TimelineView.
+    @Published private(set) var displayDate = Date()
+    private var displayClock: AnyCancellable?
+
+    var hasExpiringReset: Bool {
+        codexRows.contains { $0.expiringReset(at: displayDate) != nil }
+    }
+
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
     @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
@@ -253,6 +282,9 @@ final class TrayViewModel: ObservableObject {
             codexTrayTitle = "!"
         }
         syncLaunchAtLoginState()
+        displayClock = Timer.publish(every: 60, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] date in self?.displayDate = date }
     }
 
     static func bootstrap() -> TrayViewModel {
@@ -299,6 +331,7 @@ final class TrayViewModel: ObservableObject {
     }
 
     func refreshLaunchAtLogin() {
+        displayDate = Date()
         launchAtLoginController.refresh()
         syncLaunchAtLoginState()
     }
@@ -317,6 +350,7 @@ final class TrayViewModel: ObservableObject {
     func refresh() async {
         guard let refresher else { return }
         let snapshot = await refresher.refresh().snapshot
+        displayDate = Date()
         if let codexSummary = snapshot.codexSummary {
             codexRows = codexSummary.rows
             codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 public protocol OpenCodexQuotaServing: Sendable {
     func fetchAccounts() async throws -> [OpenCodexAccount]
@@ -6,6 +7,7 @@ public protocol OpenCodexQuotaServing: Sendable {
 }
 
 public actor OpenCodexClient: OpenCodexQuotaServing {
+    private static let logger = Logger(subsystem: "local.opencodex.quota-tray", category: "reset-credits")
     private let baseURL: URL
     private let adminToken: String
     private let session: URLSession
@@ -29,10 +31,40 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let data = try await send(request, operation: "accounts")
         do {
-            return try OpenCodexResponseDecoder.decodeAccounts(data)
+            let accounts = try OpenCodexResponseDecoder.decodeAccounts(data)
+            return await withTaskGroup(of: (Int, OpenCodexAccount).self) { group in
+                for (index, account) in accounts.enumerated() {
+                    group.addTask {
+                        var account = account
+                        // The usage response can carry a stale reset count, including zero.
+                        // Always inspect credits; lookup failure must not hide valid quota data.
+                        do {
+                            account.resetCreditExpirations = try await self.fetchResetCreditExpirations(accountId: account.id)
+                        } catch {
+                            Self.logger.warning("Reset-credit lookup failed for account \(account.id, privacy: .private); quota remains available. Error: \(String(describing: error), privacy: .private)")
+                            account.resetCreditExpirations = nil
+                        }
+                        return (index, account)
+                    }
+                }
+                var results: [(Int, OpenCodexAccount)] = []
+                for await result in group { results.append(result) }
+                return results.sorted { $0.0 < $1.0 }.map(\.1)
+            }
         } catch {
             throw OpenCodexClientError.invalidResponse("OpenCodex returned an invalid account response")
         }
+    }
+
+    private func fetchResetCreditExpirations(accountId: String) async throws -> [Date] {
+        var components = URLComponents(url: endpoint("/api/codex-auth/reset-credits"), resolvingAgainstBaseURL: true)!
+        components.queryItems = [URLQueryItem(name: "accountId", value: accountId)]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let data = try await send(request, operation: "reset credits")
+        return try OpenCodexResponseDecoder.decodeResetCreditExpirations(data)
     }
 
     public func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
@@ -71,6 +103,18 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
 }
 
 public enum OpenCodexResponseDecoder {
+    public static func decodeResetCreditExpirations(_ data: Data) throws -> [Date] {
+        let response = try JSONDecoder().decode(ResetCreditsDTO.self, from: data)
+        guard response.available_count != 0 else { return [] }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let standard = ISO8601DateFormatter()
+        return response.credits.compactMap { credit in
+            guard let value = credit.expires_at else { return nil }
+            return fractional.date(from: value) ?? standard.date(from: value)
+        }
+    }
+
     public static func decodeAccounts(_ data: Data) throws -> [OpenCodexAccount] {
         let accounts = try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
         let poolMatches = accounts.filter { $0.isMain != true }.compactMap(\.quotaMatch)
@@ -161,4 +205,12 @@ private struct ClaudeAccountDTO: Decodable {
     let alias: String?
     let email: String?
     let quota: QuotaDTO?
+}
+
+private struct ResetCreditsDTO: Decodable {
+    let available_count: Int?
+    let credits: [ResetCreditDTO]
+}
+private struct ResetCreditDTO: Decodable {
+    let expires_at: String?
 }
