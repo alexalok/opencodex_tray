@@ -1,6 +1,11 @@
 import Foundation
 
 public struct QuotaSnapshot: Codable, Equatable, Sendable {
+    public let sourceID: String?
+    public let sourceLabel: String?
+    public let codexEnabled: Bool?
+    public let claudeEnabled: Bool?
+    public let discardCachedData: Bool?
     public let fetchedAt: Date
     public let codexSummary: QuotaSummary?
     public let codexErrorMessage: String?
@@ -8,12 +13,22 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
     public let claudeErrorMessage: String?
 
     public init(
+        sourceID: String? = nil,
+        sourceLabel: String? = nil,
+        codexEnabled: Bool? = nil,
+        claudeEnabled: Bool? = nil,
+        discardCachedData: Bool? = nil,
         fetchedAt: Date,
         codexSummary: QuotaSummary?,
         codexErrorMessage: String?,
         claudeSummary: ClaudeQuotaSummary?,
         claudeErrorMessage: String?
     ) {
+        self.sourceID = sourceID
+        self.sourceLabel = sourceLabel
+        self.codexEnabled = codexEnabled
+        self.claudeEnabled = claudeEnabled
+        self.discardCachedData = discardCachedData
         self.fetchedAt = fetchedAt
         self.codexSummary = codexSummary
         self.codexErrorMessage = codexErrorMessage

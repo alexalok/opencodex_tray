@@ -24,9 +24,10 @@ struct OpenCodexTrayApp: App {
     var body: some Scene {
         MenuBarExtra {
             Group {
+            Text(model.sourceLabel)
             Section("Codex Pool") {
                 if model.codexRows.isEmpty {
-                    Text(model.errorMessage == nil ? "Loading…" : "Unavailable")
+                    Text(!model.codexEnabled ? "Disabled" : model.errorMessage == nil ? "No accounts" : "Unavailable")
                 } else {
                     ForEach(model.codexRows) { row in
                         if let expiry = DisplayFormatter.resetExpiry(row, now: model.displayDate) {
@@ -40,7 +41,7 @@ struct OpenCodexTrayApp: App {
             }
             Section("Claude Pool (5h/1w)") {
                 if model.claudeRows.isEmpty {
-                    Text(model.errorMessage == nil && model.claudeErrorMessage == nil ? "Loading…" : "Unavailable")
+                    Text(!model.claudeEnabled ? "Disabled" : model.claudeErrorMessage == nil ? "No accounts" : "Unavailable")
                 } else {
                     ForEach(model.claudeRows) { row in
                         Text(DisplayFormatter.claudeRow(row))
@@ -248,6 +249,9 @@ final class TrayViewModel: ObservableObject {
         codexRows.contains { $0.expiringReset(at: displayDate) != nil }
     }
 
+    @Published private(set) var sourceLabel = "Connecting to OpenCodex…"
+    @Published private(set) var codexEnabled = true
+    @Published private(set) var claudeEnabled = true
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
     @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
@@ -290,26 +294,22 @@ final class TrayViewModel: ObservableObject {
     static func bootstrap() -> TrayViewModel {
         do {
             let config = try TrayConfiguration.load(environment: ProcessInfo.processInfo.environment)
-            let token = try AdminTokenReader.read(path: config.adminTokenPath)
-            do {
-                let widgetConfiguration = WidgetConnectionConfiguration(
-                    baseURL: config.baseURL,
-                    adminToken: token,
-                    requestTimeout: config.requestTimeout
-                )
-                try WidgetConfigurationStore.shared().save(widgetConfiguration)
-                WidgetCenter.shared.reloadAllTimelines()
-            } catch {
-                Self.logger.error(
-                    "Failed to sync widget configuration: \(error.localizedDescription, privacy: .public)"
-                )
+            let logger = Self.logger
+            let loader = AdaptiveQuotaSnapshotLoader(configuration: config) { connection in
+                do {
+                    let store = try WidgetConfigurationStore.shared()
+                    let widgetConfig = WidgetConnectionConfiguration(
+                        baseURL: config.baseURL, adminToken: "", requestTimeout: config.requestTimeout,
+                        connection: connection
+                    )
+                    if (try? store.load()) != widgetConfig {
+                        try store.save(widgetConfig)
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
+                } catch {
+                    logger.error("Failed to sync widget connection: \(error.localizedDescription, privacy: .public)")
+                }
             }
-            let client = OpenCodexClient(
-                baseURL: config.baseURL,
-                adminToken: token,
-                timeout: config.requestTimeout
-            )
-            let loader = QuotaSnapshotLoader(client: client)
             return TrayViewModel(
                 refresher: QuotaRefresher(loader: loader),
                 interval: config.pollInterval
@@ -351,9 +351,14 @@ final class TrayViewModel: ObservableObject {
         guard let refresher else { return }
         let snapshot = await refresher.refresh().snapshot
         displayDate = Date()
+        sourceLabel = snapshot.sourceLabel ?? "OpenCodex source unavailable"
+        codexEnabled = snapshot.codexEnabled ?? true
+        claudeEnabled = snapshot.claudeEnabled ?? true
+        codexRows = []
+        claudeRows = []
         if let codexSummary = snapshot.codexSummary {
             codexRows = codexSummary.rows
-            codexTrayTitle = DisplayFormatter.trayTitle(codexSummary.trayPercentage)
+            codexTrayTitle = codexEnabled ? DisplayFormatter.trayTitle(codexSummary.trayPercentage) : "–"
             errorMessage = nil
         } else {
             codexTrayTitle = "!"
@@ -361,7 +366,7 @@ final class TrayViewModel: ObservableObject {
         }
         if let claudeSummary = snapshot.claudeSummary {
             claudeRows = claudeSummary.rows
-            claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
+            claudeTrayTitle = claudeEnabled ? DisplayFormatter.claudeTrayTitle(claudeSummary) : "–"
             claudeErrorMessage = nil
         } else {
             claudeTrayTitle = "!"

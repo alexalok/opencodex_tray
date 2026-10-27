@@ -2,6 +2,17 @@ import XCTest
 import OpenCodexQuotaCore
 
 final class QuotaWidgetStateTests: XCTestCase {
+    func testChangedSourceAndInvalidEnrollmentDiscardOldCache() {
+        let cached = makeCompleteSnapshot()
+        for discard in [true, false] {
+            let failed = QuotaSnapshot(sourceID: "new-hub", discardCachedData: discard,
+                fetchedAt: Date(), codexSummary: nil, codexErrorMessage: "Changed host",
+                claudeSummary: nil, claudeErrorMessage: "Changed host")
+            let result = QuotaWidgetStateResolver.resolve(load: QuotaSnapshotLoad(snapshot: failed), cached: cached)
+            XCTAssertEqual(result.content, .unavailable)
+        }
+    }
+
     func testCompleteLoadDisplaysLiveAndRequestsCacheReplacement() {
         let snapshot = makeCompleteSnapshot()
         let load = QuotaSnapshotLoad(snapshot: snapshot)

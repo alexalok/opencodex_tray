@@ -20,7 +20,8 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
         } else {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = timeout
-            self.session = URLSession(configuration: configuration)
+            configuration.timeoutIntervalForResource = timeout
+            self.session = URLSession(configuration: configuration, delegate: QuotaRedirectDelegate(), delegateQueue: nil)
         }
     }
 

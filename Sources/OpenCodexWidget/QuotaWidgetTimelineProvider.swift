@@ -36,7 +36,9 @@ struct QuotaWidgetTimelineService {
             Self.logger.error(
                 "Failed to create quota loader: \(error.localizedDescription, privacy: .public)"
             )
-            load = nil
+            load = QuotaSnapshotLoad(snapshot: QuotaSnapshot(discardCachedData: true,
+                fetchedAt: date, codexSummary: nil, codexErrorMessage: "Connection unavailable",
+                claudeSummary: nil, claudeErrorMessage: "Connection unavailable"))
         }
 
         if let snapshot = load?.snapshot, !snapshot.hasProviderData {
@@ -119,14 +121,11 @@ struct QuotaWidgetTimelineProvider: TimelineProvider {
     }
 
     func snapshotEntry(at date: Date) async -> QuotaWidgetEntry {
-        guard let cached = await cache.load() else {
+        guard await cache.load() != nil else {
             return Self.placeholderEntry(at: date)
         }
-        return QuotaWidgetEntry(
-            date: date,
-            content: .snapshot(cached, stale: true),
-            isPlaceholder: false
-        )
+        // Legacy caches have no source identity; validate before showing any stored pool.
+        return await service.makeEntry().entry
     }
 
     func placeholder(in context: Context) -> QuotaWidgetEntry {
@@ -159,11 +158,9 @@ struct QuotaWidgetTimelineProvider: TimelineProvider {
 
     private static func makeProductionLoader() throws -> any QuotaSnapshotLoading {
         let config = try WidgetConfigurationStore.shared().load()
-        let client = OpenCodexClient(
-            baseURL: config.baseURL,
-            adminToken: config.adminToken,
-            timeout: config.requestTimeout
-        )
-        return QuotaSnapshotLoader(client: client)
+        guard let connection = config.connection else {
+            throw ConfigurationError.invalid("Open tray to update widget connection")
+        }
+        return AdaptiveQuotaSnapshotLoader(connection: connection, timeout: config.requestTimeout)
     }
 }
