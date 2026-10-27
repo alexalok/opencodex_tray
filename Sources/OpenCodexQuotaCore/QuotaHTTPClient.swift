@@ -14,7 +14,7 @@ final class QuotaRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     }
 }
 
-public struct QuotaHTTPClient: QuotaHTTPServing {
+public final class QuotaHTTPClient: QuotaHTTPServing {
     private let session: URLSession
     public init(timeout: TimeInterval) {
         let config = URLSessionConfiguration.ephemeral
@@ -24,6 +24,8 @@ public struct QuotaHTTPClient: QuotaHTTPServing {
         config.urlCredentialStorage = nil
         session = URLSession(configuration: config, delegate: QuotaRedirectDelegate(), delegateQueue: nil)
     }
+    deinit { session.invalidateAndCancel() }
+
     public func get(_ url: URL, headers: [String: String]) async throws -> Data {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = "GET"
