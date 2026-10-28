@@ -4,15 +4,18 @@ public struct WidgetConnectionConfiguration: Codable, Equatable, Sendable {
     public let baseURL: URL
     public let adminToken: String
     public let requestTimeout: TimeInterval
+    public let connection: QuotaConnection?
 
     public init(
         baseURL: URL,
         adminToken: String,
-        requestTimeout: TimeInterval
+        requestTimeout: TimeInterval,
+        connection: QuotaConnection? = nil
     ) {
         self.baseURL = baseURL
         self.adminToken = adminToken
         self.requestTimeout = requestTimeout
+        self.connection = connection
     }
 }
 

@@ -118,8 +118,18 @@ Optional env:
 | `OPENCODEX_BASE_URL` | `http://127.0.0.1:10100` |
 | `OPENCODEX_HOME` | `$HOME/.opencodex` |
 
-Admin token is read once from
-`${OPENCODEX_HOME:-$HOME/.opencodex}/admin-api-token`.
+Tray checks host mode and rereads OpenCodex config/credentials every refresh.
+Standalone and hub hosts use local management quota APIs with `admin-api-token`.
+Client hosts use their enrolled `service-api-token` for `GET /v1/hub-quota` on the
+connected hub. The hub must support this endpoint and explicitly grant
+`allowQuotaRead: true` to that client key. Local admin credentials are never used
+for hub quota requests.
+
+The menu and widget identify the source and mark disabled Codex/Claude providers.
+Unknown quota stays unknown. A changed connection or failed validation clears old
+rows; client mode never falls back to unrelated local accounts. HTTPS is required
+for remote origins, and credentialed requests refuse redirects. Direct hub
+transport is supported; Remote Link transport is not supported yet.
 
 ## Notification Center widget
 
@@ -130,9 +140,10 @@ size. It requests fresh Codex and Claude quota every 30 minutes and works while
 the tray app is stopped; macOS may defer refreshes.
 
 The shared connection file is atomic, owner-only (`0600`), and available only
-to app components signed for `KTNPDHXXV3.opencodex.quota-tray.shared`. Relaunch
-the tray after changing its config or admin token so the widget receives the
-new settings. Custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work because
+to app components signed for `KTNPDHXXV3.opencodex.quota-tray.shared`. Keep the tray running when changing OpenCodex enrollment or credentials so its
+next refresh publishes the new connection. Restart the tray after changing the
+tray-specific config file. Widgets verify the host enrollment before using a
+stored hub key; stale settings show unavailable until the tray refreshes. Custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work because
 only the tray reads those source files.
 
 ## Develop

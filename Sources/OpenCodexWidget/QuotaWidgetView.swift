@@ -65,7 +65,7 @@ struct QuotaWidgetView: View {
 
     private var unavailableLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WidgetKicker()
+            WidgetKicker(sourceLabel: model.sourceLabel)
             Spacer(minLength: 0)
             HStack {
                 Spacer(minLength: 0)
@@ -87,7 +87,7 @@ struct QuotaWidgetView: View {
 
     private var smallLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WidgetKicker()
+            WidgetKicker(sourceLabel: model.sourceLabel)
 
             Spacer(minLength: 6)
 
@@ -127,7 +127,7 @@ struct QuotaWidgetView: View {
     private var mediumLayout: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline) {
-                WidgetKicker()
+                WidgetKicker(sourceLabel: model.sourceLabel)
                 Spacer(minLength: 8)
                 UpdatedAgeView(
                     updatedAt: model.updatedAt,
@@ -172,14 +172,15 @@ struct QuotaWidgetView: View {
 // MARK: - Building blocks
 
 private struct WidgetKicker: View {
+    var sourceLabel: String? = nil
     var body: some View {
-        Text("OpenCodex Quota")
+        Text(sourceLabel ?? "OpenCodex Quota")
             .textCase(.uppercase)
             .font(.caption2.weight(.semibold))
             .tracking(0.7)
             .foregroundStyle(.secondary)
             .lineLimit(1)
-            .accessibilityLabel("OpenCodex Quota")
+            .accessibilityLabel(sourceLabel ?? "OpenCodex Quota")
     }
 }
 

@@ -17,7 +17,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
         XCTAssertEqual(result.nextRefresh, now.addingTimeInterval(30 * 60))
     }
 
-    func testFactoryFailureUsesCachedSnapshotAsStale() async {
+    func testFactoryFailureCannotDisplayUnverifiedLegacySnapshot() async {
         let cached = makeCompleteSnapshot()
         let service = QuotaWidgetTimelineService(
             makeLoader: { throw ConfigurationError.invalid("Config unavailable") },
@@ -27,7 +27,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
 
         let result = await service.makeEntry()
 
-        XCTAssertEqual(result.entry.content, .snapshot(cached, stale: true))
+        XCTAssertEqual(result.entry.content, .unavailable)
     }
 
     func testCompleteLoadWritesLastCompleteCache() async {
@@ -75,7 +75,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
         XCTAssertEqual(saves, [])
     }
 
-    func testGallerySnapshotUsesCachedDataAsStale() async {
+    func testGallerySnapshotChecksConnectionEvenForLegacyCache() async {
         let cached = makeCompleteSnapshot()
         let cache = FakeWidgetCache(snapshot: cached)
         let provider = QuotaWidgetTimelineProvider(
@@ -89,7 +89,7 @@ final class QuotaWidgetTimelineTests: XCTestCase {
 
         let entry = await provider.snapshotEntry(at: widgetTestDate)
 
-        XCTAssertEqual(entry.content, .snapshot(cached, stale: true))
+        XCTAssertEqual(entry.content, .unavailable)
         XCTAssertFalse(entry.isPlaceholder)
     }
 

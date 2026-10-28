@@ -11,8 +11,10 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
     private let baseURL: URL
     private let adminToken: String
     private let session: URLSession
+    private let ownsSession: Bool
 
-    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil) {
+    public init(baseURL: URL, adminToken: String, timeout: TimeInterval, session: URLSession? = nil, ownsSession: Bool = false) {
+        self.ownsSession = session == nil || ownsSession
         self.baseURL = baseURL
         self.adminToken = adminToken
         if let session {
@@ -20,8 +22,13 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
         } else {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = timeout
-            self.session = URLSession(configuration: configuration)
+            configuration.timeoutIntervalForResource = timeout
+            self.session = URLSession(configuration: configuration, delegate: QuotaRedirectDelegate(), delegateQueue: nil)
         }
+    }
+
+    deinit {
+        if ownsSession { session.invalidateAndCancel() }
     }
 
     public func fetchAccounts() async throws -> [OpenCodexAccount] {

@@ -16,6 +16,14 @@ enum QuotaWidgetStateResolver {
         load: QuotaSnapshotLoad?,
         cached: QuotaSnapshot?
     ) -> QuotaWidgetResolution {
+        if load?.snapshot.discardCachedData == true
+            || (load?.snapshot.sourceID != cached?.sourceID && cached != nil)
+            || (load == nil && cached?.sourceID != nil) {
+            guard let snapshot = load?.snapshot, snapshot.hasProviderData else {
+                return QuotaWidgetResolution(content: .unavailable, snapshotToCache: nil)
+            }
+            return QuotaWidgetResolution(content: .snapshot(snapshot, stale: false), snapshotToCache: snapshot)
+        }
         guard let snapshot = load?.snapshot, snapshot.hasProviderData else {
             return QuotaWidgetResolution(
                 content: cached.map { .snapshot($0, stale: true) } ?? .unavailable,
@@ -116,6 +124,7 @@ private enum QuotaSpokenText {
 struct QuotaWidgetViewModel: Equatable {
     let codex: QuotaWidgetProviderModel
     let claude: QuotaWidgetProviderModel
+    let sourceLabel: String?
     let updatedAt: Date?
     let isStale: Bool
     let isUnavailable: Bool
@@ -125,18 +134,25 @@ struct QuotaWidgetViewModel: Equatable {
         case .unavailable:
             codex = Self.unavailableProvider(named: "Codex")
             claude = Self.unavailableProvider(named: "Claude")
+            sourceLabel = nil
             updatedAt = nil
             isStale = false
             isUnavailable = true
         case let .snapshot(snapshot, stale):
-            codex = snapshot.codexSummary.map(Self.codexProvider)
+            sourceLabel = snapshot.sourceLabel
+            codex = snapshot.codexEnabled == false ? Self.disabledProvider(named: "Codex") : snapshot.codexSummary.map(Self.codexProvider)
                 ?? Self.unavailableProvider(named: "Codex")
-            claude = snapshot.claudeSummary.map(Self.claudeProvider)
+            claude = snapshot.claudeEnabled == false ? Self.disabledProvider(named: "Claude") : snapshot.claudeSummary.map(Self.claudeProvider)
                 ?? Self.unavailableProvider(named: "Claude")
             updatedAt = snapshot.fetchedAt
             isStale = stale
             isUnavailable = false
         }
+    }
+
+    private static func disabledProvider(named name: String) -> QuotaWidgetProviderModel {
+        QuotaWidgetProviderModel(total: "Disabled", rows: [], overflowCount: 0, isUnavailable: false,
+                                accessibilityLabel: "\(name), disabled")
     }
 
     private static func unavailableProvider(named name: String) -> QuotaWidgetProviderModel {
