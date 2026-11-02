@@ -6,6 +6,15 @@ final class QuotaConnectionTests: XCTestCase {
     private let host = URL(string: "http://127.0.0.1:10100")!
     private let config = Data(#"{"runtimeRole":"client","client":{"serverUrl":"https://hub.example","managementUrl":"https://hub.example","apiKeyId":"client-1","connectedAt":"2026-10-26T18:38:02.191Z","tokenFingerprint":"505a8c497606f899f72232a403399922417b7ca910dd96f341a44d1658a22a8f"}}"#.utf8)
 
+    func testLinkChildUsesLocalRelayAndDistinctIdentity() throws {
+        let data = Data(String(decoding: config, as: UTF8.self).replacingOccurrences(of: "\"serverUrl\":", with: "\"transport\":\"link\",\"link\":{\"linkId\":\"link-1\"},\"serverUrl\":").utf8)
+        let connection = try QuotaConnection.resolve(hostURL: host, runningRole: "client",
+            configData: data, adminToken: "local-admin", dataToken: "hub-token")
+        XCTAssertEqual(connection.mode.rawValue, "link")
+        XCTAssertEqual(connection.sourceURL, host)
+        XCTAssertTrue(connection.label.hasPrefix("Link:"))
+    }
+
     func testLocalRoleKeepsLocalCredentialAndDisabledProvider() throws {
         let connection = try QuotaConnection.resolve(hostURL: host, runningRole: "standalone",
             configData: Data(#"{"providers":{"anthropic":{"disabled":true}}}"#.utf8),

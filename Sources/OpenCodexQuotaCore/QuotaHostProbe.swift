@@ -10,28 +10,34 @@ struct QuotaHostProbe: Sendable {
         return health.role ?? "local"
     }
 
-    func validate(_ connection: QuotaConnection) async throws {
+    @discardableResult
+    func validate(_ connection: QuotaConnection) async throws -> [String: String] {
         let role = try await role(at: connection.hostURL)
         if connection.mode == .local {
             guard ["local", "standalone", "hub"].contains(role) else {
                 throw ConfigurationError.invalid("Host switched to client mode; refresh tray connection")
             }
-            return
+            return [:]
         }
         guard role == "client", QuotaConnection.isLoopback(connection.hostURL) else {
             throw ConfigurationError.invalid("Hub enrollment must be verified through the local OpenCodex listener")
         }
         let html = try await http.get(connection.hostURL.appendingPathComponent("opencodex-session"), headers: [:])
         let bootstrap = try Self.bootstrap(html, host: connection.hostURL)
+        let headers = ["x-opencodex-api-key": bootstrap.token, "x-opencodex-gui-origin": bootstrap.origin, "Origin": bootstrap.origin]
         let status = try JSONDecoder().decode(MachineStatus.self, from: await http.get(
             connection.hostURL.appendingPathComponent("api/machine/status"),
-            headers: ["x-opencodex-api-key": bootstrap.token, "x-opencodex-gui-origin": bootstrap.origin, "Origin": bootstrap.origin]))
-        guard status.mode == "client", status.connected, status.managementTransport == "direct",
+            headers: headers))
+        let matchesTransport = connection.mode == .link
+            ? status.managementTransport == "relay" && status.link?.linkId == connection.linkID && status.link?.readOnly == true
+            : status.managementTransport == "direct" && status.link == nil
+        guard status.mode == "client", status.connected, matchesTransport,
               status.apiKeyId == connection.apiKeyId, status.connectedAt == connection.connectedAt,
               let origin = URL(string: status.sharedServerOrigin),
               Self.sameOrigin(origin, connection.managementURL ?? connection.sourceURL) else {
-            throw ConfigurationError.invalid("Host hub enrollment changed; refresh tray connection")
+            throw ConfigurationError.invalid("Host \(connection.mode.rawValue) enrollment changed; refresh tray connection")
         }
+        return headers
     }
 
     static func bootstrap(_ data: Data, host: URL) throws -> (token: String, origin: String) {
@@ -53,7 +59,9 @@ struct QuotaHostProbe: Sendable {
         lhs.scheme == rhs.scheme && lhs.host == rhs.host && (lhs.port ?? (lhs.scheme == "https" ? 443 : 80)) == (rhs.port ?? (rhs.scheme == "https" ? 443 : 80))
     }
     private struct Health: Decodable { let service: String; let role: String? }
+    private struct LinkStatus: Decodable { let linkId: String; let readOnly: Bool }
     private struct MachineStatus: Decodable {
+        let link: LinkStatus?
         let mode: String
         let connected: Bool
         let managementTransport: String

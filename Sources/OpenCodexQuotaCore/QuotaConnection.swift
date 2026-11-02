@@ -3,7 +3,7 @@ import Foundation
 
 /// A resolved connection contains exactly one credential, bound to its destination.
 public struct QuotaConnection: Codable, Equatable, Sendable {
-    public enum Mode: String, Codable, Sendable { case local, hub }
+    public enum Mode: String, Codable, Sendable { case local, hub, link }
     public let mode: Mode
     public let hostURL: URL
     public let sourceURL: URL
@@ -14,10 +14,12 @@ public struct QuotaConnection: Codable, Equatable, Sendable {
     public let codexEnabled: Bool
     public let claudeEnabled: Bool
 
-    public var label: String { mode == .hub ? "Hub: \(sourceURL.host ?? "unknown")" : "Local OpenCodex" }
+    public var linkID: String? = nil
+
+    public var label: String { mode == .link ? "Link: Home (\(linkID ?? "unknown"))" : mode == .hub ? "Hub: \(sourceURL.host ?? "unknown")" : "Local OpenCodex" }
     public var sourceID: String {
         // Hash the credential so rotation also invalidates cached snapshots without exposing it.
-        let identity = [mode.rawValue, hostURL.absoluteString, sourceURL.absoluteString, apiKeyId ?? "", connectedAt ?? "", String(codexEnabled), String(claudeEnabled), token].joined(separator: "\n")
+        let identity = [mode.rawValue, linkID ?? "", hostURL.absoluteString, sourceURL.absoluteString, apiKeyId ?? "", connectedAt ?? "", String(codexEnabled), String(claudeEnabled), token].joined(separator: "\n")
         return Self.fingerprint(identity)
     }
 
@@ -39,6 +41,19 @@ public struct QuotaConnection: Codable, Equatable, Sendable {
               Self.fingerprint(dataToken) == client.tokenFingerprint,
               !client.apiKeyId.isEmpty, !client.connectedAt.isEmpty else {
             throw ConfigurationError.invalid("Hub credential does not match host enrollment; reconnect OpenCodex")
+        }
+        if client.transport == "link" {
+            guard isLoopback(hostURL), let linkID = client.link?.linkId, !linkID.isEmpty else {
+                throw ConfigurationError.invalid("Link enrollment requires a local listener and link identity")
+            }
+            var connection = Self(mode: .link, hostURL: hostURL, sourceURL: hostURL, token: dataToken,
+                apiKeyId: client.apiKeyId, connectedAt: client.connectedAt, managementURL: hostURL,
+                codexEnabled: true, claudeEnabled: true)
+            connection.linkID = linkID
+            return connection
+        }
+        guard client.transport == nil || client.transport == "hub" else {
+            throw ConfigurationError.invalid("Unsupported OpenCodex client transport")
         }
         guard client.managementTransport == nil || client.managementTransport == "direct" else {
             throw ConfigurationError.invalid("Hub quota requires direct transport; Link transport is not supported")
@@ -79,6 +94,8 @@ private struct HostConfiguration: Decodable {
 }
 private struct ProviderConfiguration: Decodable { let disabled: Bool? }
 private struct ClientConfiguration: Decodable {
+    let transport: String?
+    let link: LinkConfiguration?
     let serverUrl: String
     let managementUrl: String?
     let managementTransport: String?
@@ -86,3 +103,5 @@ private struct ClientConfiguration: Decodable {
     let connectedAt: String
     let tokenFingerprint: String
 }
+
+private struct LinkConfiguration: Decodable { let linkId: String }

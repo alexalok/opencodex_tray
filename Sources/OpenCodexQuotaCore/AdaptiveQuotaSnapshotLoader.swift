@@ -37,13 +37,15 @@ public struct AdaptiveQuotaSnapshotLoader: QuotaSnapshotLoading {
             } else if let connection { source = connection }
             else { throw ConfigurationError.invalid("Open tray to refresh quota connection") }
             resolved = source
-            try await probe.validate(source)
+            let headers = try await probe.validate(source)
             try publish(source)
             let snapshot: QuotaSnapshot
             if source.mode == .hub {
                 let data = try await http.get(source.sourceURL.appendingPathComponent("v1/hub-quota"),
                     headers: ["x-opencodex-api-key": source.token, "Accept": "application/json"])
                 snapshot = try HubQuotaDecoder.decode(data)
+            } else if source.mode == .link {
+                snapshot = await QuotaSnapshotLoader(client: LinkQuotaClient(host: source.hostURL, headers: headers, http: http)).load().snapshot
             } else {
                 let client = EnabledLocalClient(client: OpenCodexClient(baseURL: source.sourceURL, adminToken: source.token, timeout: timeout),
                     codexEnabled: source.codexEnabled, claudeEnabled: source.claudeEnabled)
@@ -85,4 +87,60 @@ private struct EnabledLocalClient: OpenCodexQuotaServing {
     let claudeEnabled: Bool
     func fetchAccounts() async throws -> [OpenCodexAccount] { try await codexEnabled ? client.fetchAccounts() : [] }
     func fetchClaudeAccounts() async throws -> [ClaudeAccount] { try await claudeEnabled ? client.fetchClaudeAccounts() : [] }
+}
+
+/// The Child authenticates the tunnel. Only its local GUI session is sent here.
+private struct LinkQuotaClient: OpenCodexQuotaServing {
+    let host: URL
+    let headers: [String: String]
+    let http: any QuotaHTTPServing
+
+    private func read(_ path: String) async throws -> Data {
+        let url = URL(string: "/api/machine/hub-relay" + path, relativeTo: host)!.absoluteURL
+        return try await http.get(url, headers: headers)
+    }
+    func fetchAccounts() async throws -> [OpenCodexAccount] {
+        let accounts = try await read("/api/codex-auth/accounts")
+        let active = try? await read("/api/codex-auth/active")
+        let threshold = active.flatMap { try? JSONDecoder().decode(LinkActiveAccount.self, from: $0).autoSwitchThreshold?.value }
+        return try OpenCodexResponseDecoder.decodeAccounts(accounts, globalAutoSwitchThreshold: threshold)
+    }
+    func fetchClaudeAccounts() async throws -> [ClaudeAccount] {
+        let data = try await read("/api/oauth/accounts?provider=anthropic")
+        let accounts = try OpenCodexResponseDecoder.decodeClaudeAccounts(data)
+        // Provider reports identify no account. Only use one for a single, stable active account.
+        guard accounts.count == 1, let account = accounts.first,
+              account.fiveHourUsedPercent == nil, account.weeklyUsedPercent == nil,
+              try JSONDecoder().decode(LinkAccountSelection.self, from: data).activeAccountId == account.id else { return accounts }
+        let reports = try JSONDecoder().decode(LinkProviderReports.self, from: await read("/api/provider-quotas"))
+        let currentData = try await read("/api/oauth/accounts?provider=anthropic")
+        guard try JSONDecoder().decode(LinkAccountSelection.self, from: currentData).activeAccountId == account.id,
+              try OpenCodexResponseDecoder.decodeClaudeAccounts(currentData) == accounts,
+              let quota = reports.reports.first(where: { $0.provider == "anthropic" && $0.source == "anthropic:oauth-usage" })?.quota else { return accounts }
+        return [ClaudeAccount(id: account.id, alias: account.alias, email: account.email,
+            fiveHourUsedPercent: quota.fiveHourPercent, weeklyUsedPercent: quota.weeklyPercent)]
+    }
+}
+private struct LinkActiveAccount: Decodable {
+    struct Threshold: Decodable {
+        let value: Double?
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let number = try? container.decode(Double.self), number.isFinite,
+               number.rounded() == number, (0...100).contains(number) { value = number }
+            else { value = nil }
+        }
+    }
+    let autoSwitchThreshold: Threshold?
+}
+
+private struct LinkAccountSelection: Decodable { let activeAccountId: String? }
+private struct LinkProviderReports: Decodable {
+    struct Report: Decodable {
+        struct Quota: Decodable { let fiveHourPercent: Double?; let weeklyPercent: Double? }
+        let provider: String
+        let source: String?
+        let quota: Quota?
+    }
+    let reports: [Report]
 }
