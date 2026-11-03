@@ -5,6 +5,7 @@ public struct AdaptiveQuotaSnapshotLoader: QuotaSnapshotLoading {
     private let connection: QuotaConnection?
     private let timeout: TimeInterval
     private let http: any QuotaHTTPServing
+    private let linkClaudeMemory: LinkClaudeQuotaMemory
     private let publish: @Sendable (QuotaConnection) throws -> Void
 
     /// Main app: re-read the host configuration and credential on every refresh.
@@ -14,15 +15,18 @@ public struct AdaptiveQuotaSnapshotLoader: QuotaSnapshotLoading {
         connection = nil
         timeout = configuration.requestTimeout
         http = QuotaHTTPClient(timeout: timeout)
+        linkClaudeMemory = .shared
         self.publish = publish
     }
 
     /// Widget: use the shared connection only after checking the host's live enrollment.
-    public init(connection: QuotaConnection, timeout: TimeInterval, http: (any QuotaHTTPServing)? = nil) {
+    public init(connection: QuotaConnection, timeout: TimeInterval, http: (any QuotaHTTPServing)? = nil,
+                linkClaudeMemory: LinkClaudeQuotaMemory = .shared) {
         configuration = nil
         self.connection = connection
         self.timeout = timeout
         self.http = http ?? QuotaHTTPClient(timeout: timeout)
+        self.linkClaudeMemory = linkClaudeMemory
         publish = { _ in }
     }
 
@@ -45,7 +49,9 @@ public struct AdaptiveQuotaSnapshotLoader: QuotaSnapshotLoading {
                     headers: ["x-opencodex-api-key": source.token, "Accept": "application/json"])
                 snapshot = try HubQuotaDecoder.decode(data)
             } else if source.mode == .link {
-                snapshot = await QuotaSnapshotLoader(client: LinkQuotaClient(host: source.hostURL, headers: headers, http: http)).load().snapshot
+                let client = LinkQuotaClient(host: source.hostURL, headers: headers, http: http,
+                    memory: linkClaudeMemory, memoryScope: source.sourceID)
+                snapshot = await QuotaSnapshotLoader(client: client).load().snapshot
             } else {
                 let client = EnabledLocalClient(client: OpenCodexClient(baseURL: source.sourceURL, adminToken: source.token, timeout: timeout),
                     codexEnabled: source.codexEnabled, claudeEnabled: source.claudeEnabled)
@@ -94,6 +100,8 @@ private struct LinkQuotaClient: OpenCodexQuotaServing {
     let host: URL
     let headers: [String: String]
     let http: any QuotaHTTPServing
+    let memory: LinkClaudeQuotaMemory
+    let memoryScope: String
 
     private func read(_ path: String) async throws -> Data {
         let url = URL(string: "/api/machine/hub-relay" + path, relativeTo: host)!.absoluteURL
@@ -115,10 +123,59 @@ private struct LinkQuotaClient: OpenCodexQuotaServing {
         let reports = try JSONDecoder().decode(LinkProviderReports.self, from: await read("/api/provider-quotas"))
         let currentData = try await read("/api/oauth/accounts?provider=anthropic")
         guard try JSONDecoder().decode(LinkAccountSelection.self, from: currentData).activeAccountId == account.id,
-              try OpenCodexResponseDecoder.decodeClaudeAccounts(currentData) == accounts,
-              let quota = reports.reports.first(where: { $0.provider == "anthropic" && $0.source == "anthropic:oauth-usage" })?.quota else { return accounts }
+              try OpenCodexResponseDecoder.decodeClaudeAccounts(currentData) == accounts else { return accounts }
+        // A Child's read is passive: the Home returns only the report it already holds and never
+        // probes Anthropic for it. That report disappears whenever nothing on the Home refreshed
+        // it recently, so keep the last one seen for this account instead of showing no quota.
+        let key = "\(memoryScope)|\(account.id)"
+        let quota: LinkClaudeQuota
+        if let reported = reports.reports.first(where: { $0.provider == "anthropic" && $0.source == "anthropic:oauth-usage" })?.quota {
+            quota = LinkClaudeQuota(fiveHourPercent: reported.fiveHourPercent, fiveHourResetAt: reported.fiveHourResetAt.map(Self.date),
+                weeklyPercent: reported.weeklyPercent, weeklyResetAt: reported.weeklyResetAt.map(Self.date))
+            memory.store(quota, for: key)
+        } else if let held = memory.quota(for: key, now: Date()) {
+            quota = held
+        } else {
+            return accounts
+        }
         return [ClaudeAccount(id: account.id, alias: account.alias, email: account.email,
             fiveHourUsedPercent: quota.fiveHourPercent, weeklyUsedPercent: quota.weeklyPercent)]
+    }
+
+    private static func date(milliseconds: Double) -> Date {
+        Date(timeIntervalSince1970: milliseconds / 1_000)
+    }
+}
+
+struct LinkClaudeQuota: Equatable, Sendable {
+    let fiveHourPercent: Double?
+    let fiveHourResetAt: Date?
+    let weeklyPercent: Double?
+    let weeklyResetAt: Date?
+}
+
+/// Last Anthropic quota a Link Child received per Home and account, held for this process.
+public final class LinkClaudeQuotaMemory: @unchecked Sendable {
+    public static let shared = LinkClaudeQuotaMemory()
+    private let lock = NSLock()
+    private var values: [String: LinkClaudeQuota] = [:]
+
+    public init() {}
+
+    func store(_ quota: LinkClaudeQuota, for key: String) {
+        lock.withLock { values[key] = quota }
+    }
+
+    /// A window whose reset time has passed starts over, so it reads as unused.
+    func quota(for key: String, now: Date) -> LinkClaudeQuota? {
+        guard let held = lock.withLock({ values[key] }) else { return nil }
+        let fiveHourReset = held.fiveHourResetAt.map { $0 <= now } ?? false
+        let weeklyReset = held.weeklyResetAt.map { $0 <= now } ?? false
+        return LinkClaudeQuota(
+            fiveHourPercent: fiveHourReset ? 0 : held.fiveHourPercent,
+            fiveHourResetAt: fiveHourReset ? nil : held.fiveHourResetAt,
+            weeklyPercent: weeklyReset ? 0 : held.weeklyPercent,
+            weeklyResetAt: weeklyReset ? nil : held.weeklyResetAt)
     }
 }
 private struct LinkActiveAccount: Decodable {
@@ -137,7 +194,12 @@ private struct LinkActiveAccount: Decodable {
 private struct LinkAccountSelection: Decodable { let activeAccountId: String? }
 private struct LinkProviderReports: Decodable {
     struct Report: Decodable {
-        struct Quota: Decodable { let fiveHourPercent: Double?; let weeklyPercent: Double? }
+        struct Quota: Decodable {
+            let fiveHourPercent: Double?
+            let fiveHourResetAt: Double?
+            let weeklyPercent: Double?
+            let weeklyResetAt: Double?
+        }
         let provider: String
         let source: String?
         let quota: Quota?
