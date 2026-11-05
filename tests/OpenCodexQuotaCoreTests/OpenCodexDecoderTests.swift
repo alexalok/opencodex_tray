@@ -2,6 +2,69 @@ import XCTest
 @testable import OpenCodexQuotaCore
 
 final class OpenCodexDecoderTests: XCTestCase {
+    func testSkipsMainWithoutCredentialAndKeepsPoolTotalAvailable() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"__main__","isMain":true,"email":"Codex App login","hasCredential":false,"needsReauth":false,"quota":null}"#,
+            #"{"id":"pool","isMain":false,"hasCredential":true,"plan":"prolite","quota":{"weeklyPercent":7.5}}"#,
+        ])
+
+        XCTAssertEqual(accounts.map(\.id), ["pool"])
+        let summary = QuotaCalculator.summarize(accounts: accounts)
+        XCTAssertEqual(summary.rows.count, 1)
+        XCTAssertEqual(summary.trayPercentage, 23) // floor(25 * 0.925)
+    }
+
+    func testSkipsEmptyMainWithExplicitMissingCredentialReason() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"__main__","isMain":true,"email":"Codex App login","hasCredential":false,"needsReauth":true,"reauthReason":"missing_credential","quota":null}"#,
+        ])
+        XCTAssertTrue(accounts.isEmpty)
+    }
+
+    func testKeepsMainWithCredentialWhenUsageFails() throws {
+        for reason in ["unauthorized", "refresh_failed"] {
+            let accounts = try decodeCodexAccounts([
+                """
+                {"id":"__main__","isMain":true,"hasCredential":true,"needsReauth":true,"reauthReason":"\(reason)","quotaRefresh":{"status":"http_error"},"quota":null}
+                """,
+            ])
+            XCTAssertEqual(accounts.map(\.id), ["__main__"])
+            XCTAssertNil(QuotaCalculator.summarize(accounts: accounts).trayPercentage)
+        }
+    }
+
+    func testKeepsMainWhenCredentialPresenceIsUnknown() throws {
+        for field in ["", ",\"hasCredential\":null"] {
+            let accounts = try decodeCodexAccounts([
+                "{\"id\":\"__main__\",\"isMain\":true,\"quota\":null\(field)}",
+            ])
+            XCTAssertEqual(accounts.map(\.id), ["__main__"])
+        }
+    }
+
+    func testKeepsMainWithCredentialReadFailureAndKnownAccountOrError() throws {
+        for evidence in [
+            #""email":"m***n@example.com""#,
+            #""plan":"pro""#,
+            #""quota":{"weeklyPercent":20}"#,
+            #""quotaRefresh":{"status":"http_error"}"#,
+            #""reauthReason":"refresh_failed""#,
+            #""needsReauth":true"#,
+        ] {
+            let accounts = try decodeCodexAccounts([
+                "{\"id\":\"__main__\",\"isMain\":true,\"hasCredential\":false,\(evidence)}",
+            ])
+            XCTAssertEqual(accounts.map(\.id), ["__main__"], evidence)
+        }
+    }
+
+    func testKeepsPoolAccountWithoutCredential() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"pool","isMain":false,"hasCredential":false,"needsReauth":true,"quota":null}"#,
+        ])
+        XCTAssertEqual(accounts.map(\.id), ["pool"])
+    }
+
     func testPreservesAccountPlanForCapacityNormalization() throws {
         let data = Data(#"{"accounts":[{"id":"friend-id","alias":"workmate","plan":"prolite","isMain":false,"quota":{"weeklyPercent":53}}]}"#.utf8)
 

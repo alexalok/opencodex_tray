@@ -143,6 +143,9 @@ public enum OpenCodexResponseDecoder {
         let accounts = try JSONDecoder().decode(AccountsResponse.self, from: data).accounts
         let poolMatches = accounts.filter { $0.isMain != true }.compactMap(\.quotaMatch)
         return accounts.filter { dto in
+            // Proxy-only hosts still emit a main placeholder. Missing usage alone is
+            // not absence: keep real accounts on probe failures and legacy responses.
+            if dto.isAbsentMainPlaceholder { return false }
             guard dto.isMain == true, let match = dto.quotaMatch else { return true }
             // The named pool entry owns display and pause state for duplicate main logins.
             return !poolMatches.contains { $0.matches(match) }
@@ -192,9 +195,23 @@ private struct AccountDTO: Decodable {
     let email: String?
     let plan: String?
     let isMain: Bool?
+    let hasCredential: Bool?
+    let needsReauth: Bool?
+    let reauthReason: String?
+    let quotaRefresh: QuotaRefreshDTO?
     let paused: Bool?
     let autoSwitchThresholdOverride: AutoSwitchThresholdDTO?
     let quota: QuotaDTO?
+
+    var isAbsentMainPlaceholder: Bool {
+        // Credential reads can fail transiently. Preserve known accounts and probe errors.
+        let identity = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return isMain == true && hasCredential == false
+            && (identity == nil || identity == "" || identity == "Codex App login")
+            && plan == nil && quota == nil && quotaRefresh == nil
+            && (reauthReason == nil || reauthReason == "missing_credential")
+            && (needsReauth != true || reauthReason == "missing_credential")
+    }
 
     var quotaMatch: AccountQuotaMatch? {
         // OpenCodex omits upstream account IDs and may mask email addresses.
@@ -220,6 +237,8 @@ private struct AccountQuotaMatch {
             && abs(weeklyResetAt - other.weeklyResetAt) <= 2
     }
 }
+// Only presence matters: any refresh result keeps the account visible.
+private struct QuotaRefreshDTO: Decodable {}
 private struct QuotaDTO: Decodable {
     let fiveHourPercent: Double?
     let weeklyPercent: Double?
