@@ -204,3 +204,20 @@ MIT, see [LICENSE](LICENSE).
 
 Bundled CodexBar provider icons are MIT-licensed by Peter Steinberger, see
 [Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt](Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt).
+
+## Z.ai Coding Plan
+
+Z.ai quota is read from OpenCodex's `/api/provider-quotas` endpoint (through the
+Home relay for Link clients). Reports with source `zai:quota-limit` appear in
+the menu bar, dropdown, and widget. Credentials remain managed by OpenCodex.
+No Z.ai API key or separate tray configuration is needed.
+
+Values show remaining 5-hour / weekly allowance; missing windows show `—`.
+Multiple provider configurations are displayed separately and summed without
+plan normalization. Configure each subscription only once to avoid double counting.
+If OpenCodex supplies no Z.ai report, the section is hidden. Request failures
+show an isolated Z.ai error. No reset or account mutation is performed.
+
+Hub mode accepts an optional `providers.zai` entry using the existing hub
+provider/account schema. Hubs that omit it continue to show Codex and Claude;
+the tray does not fetch Z.ai directly or change the hub service.

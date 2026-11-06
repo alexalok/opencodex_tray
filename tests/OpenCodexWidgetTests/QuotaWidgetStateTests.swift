@@ -2,6 +2,33 @@ import XCTest
 import OpenCodexQuotaCore
 
 final class QuotaWidgetStateTests: XCTestCase {
+    func testZaiPresentationAndFailure() {
+        let summary = ClaudeQuotaCalculator.summarize(accounts: [ClaudeAccount(id: "zai", alias: "Work", email: nil,
+            fiveHourUsedPercent: 20, weeklyUsedPercent: 40)])
+        let snapshot = QuotaSnapshot(zaiSummary: summary, fetchedAt: Date(), codexSummary: nil,
+            codexErrorMessage: nil, claudeSummary: nil, claudeErrorMessage: nil)
+        let model = QuotaWidgetViewModel(content: .snapshot(snapshot, stale: false))
+        XCTAssertEqual(model.zai?.total, "80%/60%")
+        XCTAssertEqual(model.zai?.rows.first?.label, "Work")
+        XCTAssertTrue(model.zai?.accessibilityLabel.hasPrefix("Z.ai,") == true)
+        let failed = QuotaSnapshot(zaiErrorMessage: "Unavailable", fetchedAt: Date(), codexSummary: nil,
+            codexErrorMessage: nil, claudeSummary: nil, claudeErrorMessage: nil)
+        XCTAssertFalse(failed.isComplete)
+        XCTAssertTrue(QuotaWidgetViewModel(content: .snapshot(failed, stale: false)).zai?.isUnavailable == true)
+        XCTAssertNil(QuotaWidgetViewModel(content: .snapshot(makeCompleteSnapshot(), stale: false)).zai)
+    }
+
+    func testZaiFailureStillRefreshesOtherProviderCache() {
+        let cached = makeCompleteSnapshot()
+        let fresh = QuotaSnapshot(zaiErrorMessage: "Unavailable", fetchedAt: cached.fetchedAt.addingTimeInterval(60),
+            codexSummary: cached.codexSummary, codexErrorMessage: nil,
+            claudeSummary: cached.claudeSummary, claudeErrorMessage: nil)
+        let result = QuotaWidgetStateResolver.resolve(load: QuotaSnapshotLoad(snapshot: fresh), cached: cached)
+        XCTAssertEqual(result.snapshotToCache, fresh)
+        let outage = QuotaWidgetStateResolver.resolve(load: nil, cached: result.snapshotToCache)
+        XCTAssertEqual(outage.content, .snapshot(fresh, stale: true))
+    }
+
     func testChangedSourceAndInvalidEnrollmentDiscardOldCache() {
         let cached = makeCompleteSnapshot()
         for discard in [true, false] {

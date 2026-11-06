@@ -65,7 +65,7 @@ public struct AdaptiveQuotaSnapshotLoader: QuotaSnapshotLoading {
                     throw ConfigurationError.invalid("OpenCodex config changed during quota refresh; retry")
                 }
             }
-            return QuotaSnapshotLoad(snapshot: QuotaSnapshot(sourceID: source.sourceID, sourceLabel: source.label,
+            return QuotaSnapshotLoad(snapshot: QuotaSnapshot(zaiSummary: snapshot.zaiSummary, zaiErrorMessage: snapshot.zaiErrorMessage, sourceID: source.sourceID, sourceLabel: source.label,
                 codexEnabled: snapshot.codexEnabled ?? source.codexEnabled,
                 claudeEnabled: snapshot.claudeEnabled ?? source.claudeEnabled,
                 fetchedAt: snapshot.fetchedAt, codexSummary: snapshot.codexSummary, codexErrorMessage: snapshot.codexErrorMessage,
@@ -91,6 +91,7 @@ private struct EnabledLocalClient: OpenCodexQuotaServing {
     let client: OpenCodexClient
     let codexEnabled: Bool
     let claudeEnabled: Bool
+    func fetchZaiQuota() async throws -> ClaudeQuotaSummary? { try await client.fetchZaiQuota() }
     func fetchAccounts() async throws -> [OpenCodexAccount] { try await codexEnabled ? client.fetchAccounts() : [] }
     func fetchClaudeAccounts() async throws -> [ClaudeAccount] { try await claudeEnabled ? client.fetchClaudeAccounts() : [] }
 }
@@ -106,6 +107,10 @@ private struct LinkQuotaClient: OpenCodexQuotaServing {
     private func read(_ path: String) async throws -> Data {
         let url = URL(string: "/api/machine/hub-relay" + path, relativeTo: host)!.absoluteURL
         return try await http.get(url, headers: headers)
+    }
+    func fetchZaiQuota() async throws -> ClaudeQuotaSummary? {
+        let summary = try ZaiQuotaDecoder.decode(await read("/api/provider-quotas"))
+        return summary.rows.isEmpty ? nil : summary
     }
     func fetchAccounts() async throws -> [OpenCodexAccount] {
         let accounts = try await read("/api/codex-auth/accounts")

@@ -48,6 +48,12 @@ struct OpenCodexTrayApp: App {
                     }
                 }
             }
+            if !model.zaiRows.isEmpty || model.zaiErrorMessage != nil {
+                Section("Z.ai Coding Plan (5h/1w)") {
+                    ForEach(model.zaiRows) { row in Text(DisplayFormatter.claudeRow(row)) }
+                    if let error = model.zaiErrorMessage { Text(error) }
+                }
+            }
             if let error = model.errorMessage {
                 Divider()
                 Text("Error: \(error)")
@@ -79,6 +85,7 @@ struct OpenCodexTrayApp: App {
             .onAppear { model.refreshLaunchAtLogin() }
         } label: {
             TrayStatusLabel(
+                zaiLimits: model.zaiTrayTitle,
                 claudeLimits: model.claudeTrayTitle,
                 codexPercentage: model.codexTrayTitle,
                 hasExpiringReset: model.hasExpiringReset,
@@ -92,6 +99,7 @@ struct OpenCodexTrayApp: App {
 
 @MainActor
 private struct TrayStatusLabel: View {
+    let zaiLimits: String?
     let claudeLimits: String
     let codexPercentage: String
     let hasExpiringReset: Bool
@@ -102,6 +110,7 @@ private struct TrayStatusLabel: View {
         if let claudeIcon = ProviderIconStore.cgImage(named: "ProviderIcon-claude"),
            let codexIcon = ProviderIconStore.cgImage(named: "ProviderIcon-codex") {
             Self.statusImage(
+                zaiLimits: zaiLimits,
                 claudeIcon: claudeIcon,
                 claudeLimits: claudeLimits,
                 codexIcon: codexIcon,
@@ -110,13 +119,14 @@ private struct TrayStatusLabel: View {
                 accessibilityLabel: accessibilityLabel
             )
         } else {
-            Text("Claude \(claudeLimits)  Codex \(codexPercentage)\(hasExpiringReset ? " 🎟 !" : "")")
+            Text("Claude \(claudeLimits)  Codex \(codexPercentage)\(hasExpiringReset ? " 🎟 !" : "")" + (zaiLimits.map { "  Z.ai \($0)" } ?? ""))
                 .monospacedDigit()
                 .accessibilityLabel(accessibilityLabel)
         }
     }
 
     private static func statusImage(
+        zaiLimits: String?,
         claudeIcon: CGImage,
         claudeLimits: String,
         codexIcon: CGImage,
@@ -134,8 +144,10 @@ private struct TrayStatusLabel: View {
         let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
         let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
         let warningWidth: CGFloat = hasExpiringReset ? iconTextGap + iconSize + iconTextGap + 6 : 0
+        let zaiText = zaiLimits.map { "Z.ai \($0)" } ?? ""
+        let zaiWidth = zaiLimits == nil ? 0 : groupGap + ceil((zaiText as NSString).size(withAttributes: attributes).width)
         let width = iconSize + iconTextGap + claudeTextWidth
-            + groupGap + iconSize + iconTextGap + codexTextWidth + warningWidth
+            + groupGap + iconSize + iconTextGap + codexTextWidth + warningWidth + zaiWidth
         let textFont = Font.system(size: fontSize).monospacedDigit()
 
         return Image(size: CGSize(width: width, height: height), label: Text(accessibilityLabel)) { context in
@@ -170,6 +182,11 @@ private struct TrayStatusLabel: View {
                 at: CGPoint(x: codexIconX + iconSize + iconTextGap, y: height / 2),
                 anchor: .leading
             )
+            if zaiLimits != nil {
+                var text = context.resolve(Text(zaiText).font(textFont))
+                text.shading = .color(.white)
+                context.draw(text, at: CGPoint(x: width - zaiWidth + groupGap, y: height / 2), anchor: .leading)
+            }
             if hasExpiringReset {
                 let ticketX = codexIconX + iconSize + iconTextGap + codexTextWidth + iconTextGap
                 var ticket = context.resolve(Image(systemName: "ticket"))
@@ -249,6 +266,9 @@ final class TrayViewModel: ObservableObject {
         codexRows.contains { $0.expiringReset(at: displayDate) != nil }
     }
 
+    @Published private(set) var zaiRows: [ClaudeAccountAllowance] = []
+    @Published private(set) var zaiTrayTitle: String?
+    @Published private(set) var zaiErrorMessage: String?
     @Published private(set) var sourceLabel = "Connecting to OpenCodex…"
     @Published private(set) var codexEnabled = true
     @Published private(set) var claudeEnabled = true
@@ -263,7 +283,7 @@ final class TrayViewModel: ObservableObject {
     @Published private(set) var launchAtLoginErrorMessage: String?
 
     var trayAccessibilityLabel: String {
-        "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)"
+        "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)" + (zaiTrayTitle.map { ", Z.ai \($0), 5-hour / 1-week remaining" } ?? "")
     }
 
     private let refresher: QuotaRefresher?
@@ -354,6 +374,10 @@ final class TrayViewModel: ObservableObject {
         sourceLabel = snapshot.sourceLabel ?? "OpenCodex source unavailable"
         codexEnabled = snapshot.codexEnabled ?? true
         claudeEnabled = snapshot.claudeEnabled ?? true
+        zaiRows = snapshot.zaiSummary?.rows ?? []
+        zaiErrorMessage = snapshot.zaiErrorMessage
+        zaiTrayTitle = snapshot.zaiSummary.flatMap { $0.rows.isEmpty ? nil : DisplayFormatter.claudeTrayTitle($0) }
+            ?? (snapshot.zaiErrorMessage == nil ? nil : "!")
         codexRows = []
         claudeRows = []
         if let codexSummary = snapshot.codexSummary {

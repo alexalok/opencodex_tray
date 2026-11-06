@@ -64,6 +64,9 @@ final class OpenCodexClientTests: XCTestCase {
                 data = Data(#"{"credits":[]}"#.utf8)
             case "/api/codex-auth/active":
                 data = Data(#"{"autoSwitchThreshold":0}"#.utf8)
+            case "/api/provider-quotas":
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer admin-secret")
+                data = Data(#"{"reports":[{"provider":"zai","source":"zai:quota-limit","quota":{"fiveHourPercent":20,"weeklyPercent":40}}]}"#.utf8)
             case "/api/oauth/accounts":
                 data = Data(#"{"accounts":[]}"#.utf8)
             default:
@@ -87,7 +90,9 @@ final class OpenCodexClientTests: XCTestCase {
             "GET /api/codex-auth/active",
             "GET /api/codex-auth/reset-credits?accountId=friend-id",
             "GET /api/oauth/accounts?provider=anthropic&quota=1&refresh=1",
+            "GET /api/provider-quotas",
         ])
+        XCTAssertEqual(result.snapshot.zaiSummary?.weeklyRemainingPercentage, 60)
         XCTAssertEqual(result.snapshot.codexSummary?.rows, [
             AccountAllowance(
                 accountId: "friend-id",

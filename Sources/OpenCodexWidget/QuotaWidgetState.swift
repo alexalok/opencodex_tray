@@ -122,6 +122,7 @@ private enum QuotaSpokenText {
 }
 
 struct QuotaWidgetViewModel: Equatable {
+    let zai: QuotaWidgetProviderModel?
     let codex: QuotaWidgetProviderModel
     let claude: QuotaWidgetProviderModel
     let sourceLabel: String?
@@ -132,6 +133,7 @@ struct QuotaWidgetViewModel: Equatable {
     init(content: QuotaWidgetContent) {
         switch content {
         case .unavailable:
+            zai = nil
             codex = Self.unavailableProvider(named: "Codex")
             claude = Self.unavailableProvider(named: "Claude")
             sourceLabel = nil
@@ -139,10 +141,12 @@ struct QuotaWidgetViewModel: Equatable {
             isStale = false
             isUnavailable = true
         case let .snapshot(snapshot, stale):
+            zai = snapshot.zaiSummary.flatMap { $0.rows.isEmpty ? nil : Self.claudeProvider($0, name: "Z.ai") }
+                ?? (snapshot.zaiErrorMessage == nil ? nil : Self.unavailableProvider(named: "Z.ai"))
             sourceLabel = snapshot.sourceLabel
             codex = snapshot.codexEnabled == false ? Self.disabledProvider(named: "Codex") : snapshot.codexSummary.map(Self.codexProvider)
                 ?? Self.unavailableProvider(named: "Codex")
-            claude = snapshot.claudeEnabled == false ? Self.disabledProvider(named: "Claude") : snapshot.claudeSummary.map(Self.claudeProvider)
+            claude = snapshot.claudeEnabled == false ? Self.disabledProvider(named: "Claude") : snapshot.claudeSummary.map { Self.claudeProvider($0) }
                 ?? Self.unavailableProvider(named: "Claude")
             updatedAt = snapshot.fetchedAt
             isStale = stale
@@ -189,7 +193,7 @@ struct QuotaWidgetViewModel: Equatable {
     }
 
     private static func claudeProvider(
-        _ summary: ClaudeQuotaSummary
+        _ summary: ClaudeQuotaSummary, name: String = "Claude"
     ) -> QuotaWidgetProviderModel {
         QuotaWidgetProviderModel(
             total: DisplayFormatter.claudeTrayTitle(summary),
@@ -198,7 +202,7 @@ struct QuotaWidgetViewModel: Equatable {
                     id: $0.id,
                     label: $0.label,
                     value: DisplayFormatter.claudeAllowance($0),
-                    accessibilityLabel: "Claude \($0.label), "
+                    accessibilityLabel: "\(name) \($0.label), "
                         + QuotaSpokenText.claudePeriods(
                             fiveHour: QuotaSpokenText.percent($0.fiveHourRemainingPercent),
                             weekly: QuotaSpokenText.percent($0.weeklyRemainingPercent)
@@ -207,7 +211,7 @@ struct QuotaWidgetViewModel: Equatable {
             },
             overflowCount: max(summary.rows.count - 2, 0),
             isUnavailable: false,
-            accessibilityLabel: "Claude, "
+            accessibilityLabel: "\(name), "
                 + QuotaSpokenText.claudePeriods(
                     fiveHour: QuotaSpokenText.percent(summary.fiveHourRemainingPercentage),
                     weekly: QuotaSpokenText.percent(summary.weeklyRemainingPercentage)

@@ -1,6 +1,8 @@
 import Foundation
 
 public struct QuotaSnapshot: Codable, Equatable, Sendable {
+    public let zaiSummary: ClaudeQuotaSummary?
+    public let zaiErrorMessage: String?
     public let sourceID: String?
     public let sourceLabel: String?
     public let codexEnabled: Bool?
@@ -13,6 +15,8 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
     public let claudeErrorMessage: String?
 
     public init(
+        zaiSummary: ClaudeQuotaSummary? = nil,
+        zaiErrorMessage: String? = nil,
         sourceID: String? = nil,
         sourceLabel: String? = nil,
         codexEnabled: Bool? = nil,
@@ -24,6 +28,8 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
         claudeSummary: ClaudeQuotaSummary?,
         claudeErrorMessage: String?
     ) {
+        self.zaiSummary = zaiSummary
+        self.zaiErrorMessage = zaiErrorMessage
         self.sourceID = sourceID
         self.sourceLabel = sourceLabel
         self.codexEnabled = codexEnabled
@@ -37,11 +43,12 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
     }
 
     public var isComplete: Bool {
+        // Optional provider failures must not prevent caching fresh Codex/Claude data.
         codexSummary != nil && claudeSummary != nil
     }
 
     public var hasProviderData: Bool {
-        codexSummary != nil || claudeSummary != nil
+        codexSummary != nil || claudeSummary != nil || zaiSummary != nil
     }
 }
 
@@ -70,11 +77,13 @@ public struct QuotaSnapshotLoader: QuotaSnapshotLoading {
     }
 
     public func load() async -> QuotaSnapshotLoad {
+        async let zai = loadZai()
         async let codex = loadCodex()
         async let claude = loadClaude()
-        let (codexResult, claudeResult) = await (codex, claude)
+        let (codexResult, claudeResult, zaiResult) = await (codex, claude, zai)
         return QuotaSnapshotLoad(
             snapshot: QuotaSnapshot(
+                zaiSummary: zaiResult.summary, zaiErrorMessage: zaiResult.errorMessage,
                 fetchedAt: now(),
                 codexSummary: codexResult.summary,
                 codexErrorMessage: codexResult.errorMessage,
@@ -82,6 +91,11 @@ public struct QuotaSnapshotLoader: QuotaSnapshotLoading {
                 claudeErrorMessage: claudeResult.errorMessage
             )
         )
+    }
+
+    private func loadZai() async -> ClaudeLoadResult {
+        do { return ClaudeLoadResult(summary: try await client.fetchZaiQuota(), errorMessage: nil) }
+        catch { return ClaudeLoadResult(summary: nil, errorMessage: "OpenCodex Z.ai quota unavailable") }
     }
 
     private func loadCodex() async -> CodexLoadResult {

@@ -2,8 +2,13 @@ import Foundation
 import OSLog
 
 public protocol OpenCodexQuotaServing: Sendable {
+    func fetchZaiQuota() async throws -> ClaudeQuotaSummary?
     func fetchAccounts() async throws -> [OpenCodexAccount]
     func fetchClaudeAccounts() async throws -> [ClaudeAccount]
+}
+
+public extension OpenCodexQuotaServing {
+    func fetchZaiQuota() async throws -> ClaudeQuotaSummary? { nil }
 }
 
 public actor OpenCodexClient: OpenCodexQuotaServing {
@@ -29,6 +34,15 @@ public actor OpenCodexClient: OpenCodexQuotaServing {
 
     deinit {
         if ownsSession { session.invalidateAndCancel() }
+    }
+
+    public func fetchZaiQuota() async throws -> ClaudeQuotaSummary? {
+        var request = URLRequest(url: endpoint("/api/provider-quotas"))
+        request.setValue("Bearer \(adminToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let data = try await send(request, operation: "Z.ai quota")
+        let summary = try ZaiQuotaDecoder.decode(data)
+        return summary.rows.isEmpty ? nil : summary
     }
 
     public func fetchAccounts() async throws -> [OpenCodexAccount] {
