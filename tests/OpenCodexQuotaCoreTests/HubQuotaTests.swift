@@ -5,6 +5,17 @@ import XCTest
 final class HubQuotaTests: XCTestCase {
     private let fixture = #"{"schemaVersion":1,"generatedAt":"2026-10-27T12:00:00Z","providers":{"openai":{"enabled":true,"accounts":[{"id":"opaque","alias":"work","plan":"pro","isMain":false,"paused":false,"weeklyPercent":25,"autoSwitchThreshold":90,"resetCreditExpirations":["2026-10-29T12:00:00.000Z"]}]},"anthropic":{"enabled":true,"accounts":[{"id":"claude","fiveHourPercent":null,"weeklyPercent":30}]}}}"#
 
+    func testOptionalZaiProvider() throws {
+        XCTAssertNil(try HubQuotaDecoder.decode(Data(fixture.utf8)).zaiSummary)
+        for (enabled, error) in [(true, false), (false, false), (true, true)] {
+            let provider = "\"zai\":{\"enabled\":\(enabled),\"accounts\":[{\"id\":\"zai\",\"fiveHourPercent\":20,\"weeklyPercent\":40}]\(error ? ",\"error\":\"secret\"" : "")},"
+            let data = Data(fixture.replacingOccurrences(of: "\"providers\":{", with: "\"providers\":{\(provider)").utf8)
+            let snapshot = try HubQuotaDecoder.decode(data)
+            XCTAssertEqual(snapshot.zaiSummary?.weeklyRemainingPercentage, enabled && !error ? 60 : nil)
+            XCTAssertEqual(snapshot.zaiErrorMessage, enabled && error ? "Hub Z.ai quota unavailable" : nil)
+        }
+    }
+
     func testDecodePreservesThresholdResetDatesAndUnknownQuota() throws {
         let snapshot = try HubQuotaDecoder.decode(Data(fixture.utf8))
         XCTAssertEqual(snapshot.codexSummary?.rows.first?.remainingPercent, 65)

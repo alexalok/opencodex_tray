@@ -96,6 +96,20 @@ extension AdaptiveQuotaTests {
         try QuotaConnection.resolve(hostURL: URL(string: "http://127.0.0.1:10100")!, runningRole: "client",
             configData: Data(#"{"runtimeRole":"client","client":{"transport":"link","link":{"linkId":"link-1"},"serverUrl":"http://127.0.0.1:9999","apiKeyId":"client-1","connectedAt":"date","tokenFingerprint":"505a8c497606f899f72232a403399922417b7ca910dd96f341a44d1658a22a8f"}}"#.utf8), adminToken: "local-secret", dataToken: "hub-token")
     }
+    func testLinkLoadsZaiAndRemovesMissingReport() async throws {
+        let http = LinkTestHTTP()
+        let loader = AdaptiveQuotaSnapshotLoader(connection: try linkConnection(), timeout: 5, http: http,
+            linkClaudeMemory: LinkClaudeQuotaMemory())
+        await http.serve(anthropicAccountID: "a1", providerReports: #"{"reports":[{"provider":"zai","source":"zai:quota-limit","quota":{"fiveHourPercent":20,"weeklyPercent":40}}]}"#)
+        let first = await loader.load().snapshot
+        XCTAssertEqual(first.zaiSummary?.fiveHourRemainingPercentage, 80)
+        XCTAssertEqual(first.zaiSummary?.weeklyRemainingPercentage, 60)
+        await http.serve(anthropicAccountID: "a1", providerReports: #"{"reports":[]}"#)
+        let next = await loader.load().snapshot
+        XCTAssertNil(next.zaiSummary)
+        XCTAssertNil(next.zaiErrorMessage)
+    }
+
     func testLinkLoadsPassiveQuotaThroughLocalSession() async throws {
         let snapshot = await AdaptiveQuotaSnapshotLoader(connection: try linkConnection(), timeout: 5, http: LinkTestHTTP(),
             linkClaudeMemory: LinkClaudeQuotaMemory()).load().snapshot

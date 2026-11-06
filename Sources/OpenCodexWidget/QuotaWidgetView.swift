@@ -115,6 +115,11 @@ struct QuotaWidgetView: View {
 
             Spacer(minLength: 8)
 
+            if let zai = model.zai {
+                ProviderBlock(name: "Z.ai", iconName: "", fallback: "Z", qualifier: .claude,
+                    provider: zai, tint: .secondary, dimmed: model.isStale)
+                Spacer(minLength: 4)
+            }
             UpdatedAgeView(
                 updatedAt: model.updatedAt,
                 referenceDate: entry.date,
@@ -162,6 +167,10 @@ struct QuotaWidgetView: View {
                     dimmed: model.isStale
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if let zai = model.zai {
+                ProviderBlock(name: "Z.ai", iconName: "", fallback: "Z", qualifier: .claude,
+                    provider: zai, tint: .secondary, dimmed: model.isStale)
             }
         }
         .fixedSize(horizontal: false, vertical: true)

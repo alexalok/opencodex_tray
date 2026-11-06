@@ -2,6 +2,22 @@ import XCTest
 import OpenCodexQuotaCore
 
 final class QuotaWidgetStateTests: XCTestCase {
+    func testZaiPresentationAndFailure() {
+        let summary = ClaudeQuotaCalculator.summarize(accounts: [ClaudeAccount(id: "zai", alias: "Work", email: nil,
+            fiveHourUsedPercent: 20, weeklyUsedPercent: 40)])
+        let snapshot = QuotaSnapshot(zaiSummary: summary, fetchedAt: Date(), codexSummary: nil,
+            codexErrorMessage: nil, claudeSummary: nil, claudeErrorMessage: nil)
+        let model = QuotaWidgetViewModel(content: .snapshot(snapshot, stale: false))
+        XCTAssertEqual(model.zai?.total, "80%/60%")
+        XCTAssertEqual(model.zai?.rows.first?.label, "Work")
+        XCTAssertTrue(model.zai?.accessibilityLabel.hasPrefix("Z.ai,") == true)
+        let failed = QuotaSnapshot(zaiErrorMessage: "Unavailable", fetchedAt: Date(), codexSummary: nil,
+            codexErrorMessage: nil, claudeSummary: nil, claudeErrorMessage: nil)
+        XCTAssertFalse(failed.isComplete)
+        XCTAssertTrue(QuotaWidgetViewModel(content: .snapshot(failed, stale: false)).zai?.isUnavailable == true)
+        XCTAssertNil(QuotaWidgetViewModel(content: .snapshot(makeCompleteSnapshot(), stale: false)).zai)
+    }
+
     func testChangedSourceAndInvalidEnrollmentDiscardOldCache() {
         let cached = makeCompleteSnapshot()
         for discard in [true, false] {
