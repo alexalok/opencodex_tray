@@ -33,7 +33,7 @@ struct ZaiQuotaTests {
         #expect(snapshot.claudeSummary != nil)
         #expect(snapshot.zaiSummary == nil)
         #expect(snapshot.zaiErrorMessage == "OpenCodex Z.ai quota unavailable")
-        #expect(!snapshot.isComplete)
+        #expect(snapshot.isComplete)
     }
 
     @Test func snapshotRoundTripAndLegacyCache() throws {
@@ -45,6 +45,11 @@ struct ZaiQuotaTests {
             codexErrorMessage: nil, claudeSummary: nil, claudeErrorMessage: nil)
         #expect(current.hasProviderData)
         #expect(try JSONDecoder().decode(QuotaSnapshot.self, from: JSONEncoder().encode(current)) == current)
+    }
+
+    @Test func missingOrInvalidSourcesDoNotHideZai() throws {
+        let data = Data(#"{"reports":[{"provider":"other"},{"source":null},{"source":42},{"provider":"zai","source":"zai:quota-limit","quota":{"weeklyPercent":25}}]}"#.utf8)
+        #expect(try ZaiQuotaDecoder.decode(data).weeklyRemainingPercentage == 75)
     }
 
     @Test func unrelatedReportsDoNotRequireQuotaShape() throws {

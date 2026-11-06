@@ -28,18 +28,25 @@ public enum HubQuotaDecoder {
             return ClaudeAccount(id: row.id, alias: row.alias, email: nil,
                 fiveHourUsedPercent: row.fiveHourPercent, weeklyUsedPercent: row.weeklyPercent)
         }
-        let zai = response.providers.zai
-        let zaiSummary: ClaudeQuotaSummary?
+        let zai = response.providers.zai?.provider
+        var zaiSummary: ClaudeQuotaSummary?
+        var zaiError = response.providers.zai != nil && zai == nil
+            || (zai?.enabled == true && zai?.error != nil)
         if let zai, zai.enabled, zai.error == nil {
-            guard zai.accounts.count <= 200 else { throw ConfigurationError.invalid("Hub quota response exceeds account limit") }
-            zaiSummary = ClaudeQuotaCalculator.summarize(accounts: try zai.accounts.map { row in
-                try validate(row.fiveHourPercent, row.weeklyPercent)
-                return ClaudeAccount(id: row.id, alias: row.alias, email: nil,
-                    fiveHourUsedPercent: row.fiveHourPercent, weeklyUsedPercent: row.weeklyPercent)
-            })
-        } else { zaiSummary = nil }
+            do {
+                guard zai.accounts.count <= 200,
+                      Set(zai.accounts.map(\.id)).count == zai.accounts.count else {
+                    throw ConfigurationError.invalid("Invalid hub Z.ai account roster")
+                }
+                zaiSummary = ClaudeQuotaCalculator.summarize(accounts: try zai.accounts.map { row in
+                    try validate(row.fiveHourPercent, row.weeklyPercent)
+                    return ClaudeAccount(id: row.id, alias: row.alias, email: nil,
+                        fiveHourUsedPercent: row.fiveHourPercent, weeklyUsedPercent: row.weeklyPercent)
+                })
+            } catch { zaiError = true }
+        }
         return QuotaSnapshot(zaiSummary: zaiSummary,
-            zaiErrorMessage: zai?.enabled == true && zai?.error != nil ? "Hub Z.ai quota unavailable" : nil,
+            zaiErrorMessage: zaiError ? "Hub Z.ai quota unavailable" : nil,
             codexEnabled: codex.enabled, claudeEnabled: claude.enabled,
             fetchedAt: generatedAt,
             codexSummary: !codex.enabled || codex.error == nil ? QuotaCalculator.summarize(accounts: codex.enabled ? codexAccounts : []) : nil,
@@ -65,7 +72,12 @@ public enum HubQuotaDecoder {
         let generatedAt: String
         let providers: Providers
     }
-    private struct Providers: Decodable { let openai: Provider; let anthropic: Provider; let zai: Provider? }
+    private struct Providers: Decodable { let openai: Provider; let anthropic: Provider; let zai: OptionalZaiProvider? }
+    /// A malformed optional provider must not invalidate the hub's other providers.
+    private struct OptionalZaiProvider: Decodable {
+        let provider: Provider?
+        init(from decoder: any Decoder) throws { provider = try? Provider(from: decoder) }
+    }
     private struct Provider: Decodable {
         let enabled: Bool
         let accounts: [Account]

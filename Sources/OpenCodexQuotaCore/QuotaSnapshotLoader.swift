@@ -43,7 +43,8 @@ public struct QuotaSnapshot: Codable, Equatable, Sendable {
     }
 
     public var isComplete: Bool {
-        codexSummary != nil && claudeSummary != nil && zaiErrorMessage == nil
+        // Optional provider failures must not prevent caching fresh Codex/Claude data.
+        codexSummary != nil && claudeSummary != nil
     }
 
     public var hasProviderData: Bool {

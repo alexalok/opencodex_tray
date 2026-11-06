@@ -29,7 +29,7 @@ public enum ZaiQuotaDecoder {
         enum CodingKeys: String, CodingKey { case provider, source, label, quota }
         init(from decoder: any Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
-            source = try values.decode(String.self, forKey: .source)
+            source = (try? values.decode(String.self, forKey: .source)) ?? ""
             if source == "zai:quota-limit" {
                 provider = try values.decode(String.self, forKey: .provider)
                 label = try values.decodeIfPresent(String.self, forKey: .label)

@@ -18,6 +18,17 @@ final class QuotaWidgetStateTests: XCTestCase {
         XCTAssertNil(QuotaWidgetViewModel(content: .snapshot(makeCompleteSnapshot(), stale: false)).zai)
     }
 
+    func testZaiFailureStillRefreshesOtherProviderCache() {
+        let cached = makeCompleteSnapshot()
+        let fresh = QuotaSnapshot(zaiErrorMessage: "Unavailable", fetchedAt: cached.fetchedAt.addingTimeInterval(60),
+            codexSummary: cached.codexSummary, codexErrorMessage: nil,
+            claudeSummary: cached.claudeSummary, claudeErrorMessage: nil)
+        let result = QuotaWidgetStateResolver.resolve(load: QuotaSnapshotLoad(snapshot: fresh), cached: cached)
+        XCTAssertEqual(result.snapshotToCache, fresh)
+        let outage = QuotaWidgetStateResolver.resolve(load: nil, cached: result.snapshotToCache)
+        XCTAssertEqual(outage.content, .snapshot(fresh, stale: true))
+    }
+
     func testChangedSourceAndInvalidEnrollmentDiscardOldCache() {
         let cached = makeCompleteSnapshot()
         for discard in [true, false] {
