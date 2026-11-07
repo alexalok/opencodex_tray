@@ -12,6 +12,7 @@
 		C10000000000000000000003 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* AppIcon.icns */; };
 		C10000000000000000000004 /* ProviderIcon-claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ProviderIcon-claude.svg */; };
 		C10000000000000000000005 /* ProviderIcon-codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ProviderIcon-codex.svg */; };
+		C100000000000000000000FF /* ProviderIcon-zai.svg in Resources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000FF /* ProviderIcon-zai.svg */; };
 		C10000000000000000000006 /* CodexBar-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CodexBar-LICENSE.txt */; };
 		C10000000000000000000007 /* ProviderIcon-claude.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ProviderIcon-claude.svg */; };
 		C10000000000000000000008 /* ProviderIcon-codex.svg in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ProviderIcon-codex.svg */; };
@@ -63,6 +64,7 @@
 		B10000000000000000000003 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		B10000000000000000000004 /* ProviderIcon-claude.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = "ProviderIcon-claude.svg"; sourceTree = "<group>"; };
 		B10000000000000000000005 /* ProviderIcon-codex.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = "ProviderIcon-codex.svg"; sourceTree = "<group>"; };
+		B100000000000000000000FF /* ProviderIcon-zai.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = "ProviderIcon-zai.svg"; sourceTree = "<group>"; };
 		B10000000000000000000006 /* CodexBar-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "CodexBar-LICENSE.txt"; sourceTree = "<group>"; };
 		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000008 /* OpenCodexWidget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OpenCodexWidget-Info.plist"; sourceTree = "<group>"; };
@@ -166,6 +168,7 @@
 			children = (
 				B10000000000000000000004 /* ProviderIcon-claude.svg */,
 				B10000000000000000000005 /* ProviderIcon-codex.svg */,
+				B100000000000000000000FF /* ProviderIcon-zai.svg */,
 				B10000000000000000000006 /* CodexBar-LICENSE.txt */,
 			);
 			name = "Shared Resources";
@@ -294,6 +297,7 @@
 				C10000000000000000000003 /* AppIcon.icns in Resources */,
 				C10000000000000000000004 /* ProviderIcon-claude.svg in Resources */,
 				C10000000000000000000005 /* ProviderIcon-codex.svg in Resources */,
+				C100000000000000000000FF /* ProviderIcon-zai.svg in Resources */,
 				C10000000000000000000006 /* CodexBar-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
