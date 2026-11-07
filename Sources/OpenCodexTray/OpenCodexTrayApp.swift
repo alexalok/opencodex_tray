@@ -110,6 +110,7 @@ private struct TrayStatusLabel: View {
         if let claudeIcon = ProviderIconStore.cgImage(named: "ProviderIcon-claude"),
            let codexIcon = ProviderIconStore.cgImage(named: "ProviderIcon-codex") {
             Self.statusImage(
+                zaiIcon: ProviderIconStore.cgImage(named: "ProviderIcon-zai"),
                 zaiLimits: zaiLimits,
                 claudeIcon: claudeIcon,
                 claudeLimits: claudeLimits,
@@ -126,6 +127,7 @@ private struct TrayStatusLabel: View {
     }
 
     private static func statusImage(
+        zaiIcon: CGImage?,
         zaiLimits: String?,
         claudeIcon: CGImage,
         claudeLimits: String,
@@ -144,8 +146,9 @@ private struct TrayStatusLabel: View {
         let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
         let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
         let warningWidth: CGFloat = hasExpiringReset ? iconTextGap + iconSize + iconTextGap + 6 : 0
-        let zaiText = zaiLimits.map { "Z.ai \($0)" } ?? ""
-        let zaiWidth = zaiLimits == nil ? 0 : groupGap + ceil((zaiText as NSString).size(withAttributes: attributes).width)
+        let zaiText = zaiLimits.map { zaiIcon == nil ? "Z.ai \($0)" : $0 } ?? ""
+        let zaiIconWidth: CGFloat = zaiIcon == nil ? 0 : iconSize + iconTextGap
+        let zaiWidth = zaiLimits == nil ? 0 : groupGap + zaiIconWidth + ceil((zaiText as NSString).size(withAttributes: attributes).width)
         let width = iconSize + iconTextGap + claudeTextWidth
             + groupGap + iconSize + iconTextGap + codexTextWidth + warningWidth + zaiWidth
         let textFont = Font.system(size: fontSize).monospacedDigit()
@@ -183,9 +186,15 @@ private struct TrayStatusLabel: View {
                 anchor: .leading
             )
             if zaiLimits != nil {
+                let zaiX = width - zaiWidth + groupGap
+                if let zaiIcon {
+                    var icon = context.resolve(Image(decorative: zaiIcon, scale: 1))
+                    icon.shading = .color(.white)
+                    context.draw(icon, in: CGRect(x: zaiX, y: 1, width: iconSize, height: iconSize))
+                }
                 var text = context.resolve(Text(zaiText).font(textFont))
                 text.shading = .color(.white)
-                context.draw(text, at: CGPoint(x: width - zaiWidth + groupGap, y: height / 2), anchor: .leading)
+                context.draw(text, at: CGPoint(x: zaiX + zaiIconWidth, y: height / 2), anchor: .leading)
             }
             if hasExpiringReset {
                 let ticketX = codexIconX + iconSize + iconTextGap + codexTextWidth + iconTextGap
@@ -243,7 +252,7 @@ private enum ProviderIconStore {
     }
 
     static func verifyResourcesAndExit() -> Never {
-        let names = ["ProviderIcon-claude", "ProviderIcon-codex"]
+        let names = ["ProviderIcon-claude", "ProviderIcon-codex", "ProviderIcon-zai"]
         let resourcesAvailable = names.allSatisfy { cgImage(named: $0) != nil }
         print(resourcesAvailable ? "Resources OK" : "Resources unavailable")
         Darwin.exit(resourcesAvailable ? EXIT_SUCCESS : EXIT_FAILURE)
