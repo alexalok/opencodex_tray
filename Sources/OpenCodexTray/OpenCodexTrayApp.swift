@@ -70,8 +70,8 @@ struct OpenCodexTrayApp: App {
             .onAppear { model.refreshLaunchAtLogin() }
         } label: {
             TrayStatusLabel(
-                claudeLimits: model.claudeTrayTitle,
-                codexPercentage: model.codexTrayTitle,
+                claudeLimits: model.hideClaudeFromTray ? nil : model.claudeTrayTitle,
+                codexPercentage: model.hideCodexFromTray ? nil : model.codexTrayTitle,
                 accessibilityLabel: model.trayAccessibilityLabel
             )
         }
@@ -81,35 +81,35 @@ struct OpenCodexTrayApp: App {
 
 @MainActor
 private struct TrayStatusLabel: View {
-    let claudeLimits: String
-    let codexPercentage: String
+    let claudeLimits: String?
+    let codexPercentage: String?
     let accessibilityLabel: String
+
+    private var providers: [(icon: String, text: String)] {
+        var result: [(icon: String, text: String)] = []
+        if let claudeLimits { result.append(("ProviderIcon-claude", claudeLimits)) }
+        if let codexPercentage { result.append(("ProviderIcon-codex", codexPercentage)) }
+        return result
+    }
 
     @ViewBuilder
     var body: some View {
-        if let claudeIcon = ProviderIconStore.cgImage(named: "ProviderIcon-claude"),
-           let codexIcon = ProviderIconStore.cgImage(named: "ProviderIcon-codex") {
-            Self.statusImage(
-                claudeIcon: claudeIcon,
-                claudeLimits: claudeLimits,
-                codexIcon: codexIcon,
-                codexPercentage: codexPercentage,
-                accessibilityLabel: accessibilityLabel
-            )
+        if providers.isEmpty {
+            Image(systemName: "chart.bar")
+                .accessibilityLabel(accessibilityLabel)
+        } else if providers.allSatisfy({ ProviderIconStore.cgImage(named: $0.icon) != nil }) {
+            statusImage()
         } else {
-            Text("Claude \(claudeLimits)  Codex \(codexPercentage)")
+            Text([
+                claudeLimits.map { "Claude \($0)" },
+                codexPercentage.map { "Codex \($0)" }
+            ].compactMap { $0 }.joined(separator: "  "))
                 .monospacedDigit()
                 .accessibilityLabel(accessibilityLabel)
         }
     }
 
-    private static func statusImage(
-        claudeIcon: CGImage,
-        claudeLimits: String,
-        codexIcon: CGImage,
-        codexPercentage: String,
-        accessibilityLabel: String
-    ) -> Image {
+    private func statusImage() -> Image {
         let height: CGFloat = 16
         let iconSize: CGFloat = 14
         let iconTextGap: CGFloat = 3
@@ -117,44 +117,25 @@ private struct TrayStatusLabel: View {
         let fontSize = NSFont.systemFontSize
         let font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .regular)
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
-        let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
-        let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
-        let width = iconSize + iconTextGap + claudeTextWidth
-            + groupGap + iconSize + iconTextGap + codexTextWidth
+        let groups = providers.map { provider in
+            (icon: ProviderIconStore.cgImage(named: provider.icon)!, text: provider.text,
+             textWidth: ceil((provider.text as NSString).size(withAttributes: attributes).width))
+        }
+        let width = groups.reduce(CGFloat.zero) { $0 + iconSize + iconTextGap + $1.textWidth }
+            + CGFloat(max(groups.count - 1, 0)) * groupGap
         let textFont = Font.system(size: fontSize).monospacedDigit()
 
         return Image(size: CGSize(width: width, height: height), label: Text(accessibilityLabel)) { context in
-            var claudeIcon = context.resolve(Image(decorative: claudeIcon, scale: 1))
-            claudeIcon.shading = .color(.white)
-            context.draw(
-                claudeIcon,
-                in: CGRect(x: 0, y: 1, width: iconSize, height: iconSize)
-            )
-
-            var claudeText = context.resolve(Text(claudeLimits).font(textFont))
-            claudeText.shading = .color(.white)
-            let claudeTextX = iconSize + iconTextGap
-            context.draw(
-                claudeText,
-                at: CGPoint(x: claudeTextX, y: height / 2),
-                anchor: .leading
-            )
-
-            let codexIconX = claudeTextX + claudeTextWidth + groupGap
-            var codexIcon = context.resolve(Image(decorative: codexIcon, scale: 1))
-            codexIcon.shading = .color(.white)
-            context.draw(
-                codexIcon,
-                in: CGRect(x: codexIconX, y: 1, width: iconSize, height: iconSize)
-            )
-
-            var codexText = context.resolve(Text(codexPercentage).font(textFont))
-            codexText.shading = .color(.white)
-            context.draw(
-                codexText,
-                at: CGPoint(x: codexIconX + iconSize + iconTextGap, y: height / 2),
-                anchor: .leading
-            )
+            var x: CGFloat = 0
+            for group in groups {
+                var icon = context.resolve(Image(decorative: group.icon, scale: 1))
+                icon.shading = .color(.white)
+                context.draw(icon, in: CGRect(x: x, y: 1, width: iconSize, height: iconSize))
+                var text = context.resolve(Text(group.text).font(textFont))
+                text.shading = .color(.white)
+                context.draw(text, at: CGPoint(x: x + iconSize + iconTextGap, y: height / 2), anchor: .leading)
+                x += iconSize + iconTextGap + group.textWidth + groupGap
+            }
         }
         .renderingMode(.template)
     }
@@ -198,6 +179,8 @@ private enum ProviderIconStore {
 
 @MainActor
 final class TrayViewModel: ObservableObject {
+    @Published private(set) var hideClaudeFromTray = false
+    @Published private(set) var hideCodexFromTray = false
     @Published private(set) var claudeTrayTitle = "…"
     @Published private(set) var codexTrayTitle = "…"
     @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
@@ -209,7 +192,11 @@ final class TrayViewModel: ObservableObject {
     @Published private(set) var launchAtLoginErrorMessage: String?
 
     var trayAccessibilityLabel: String {
-        "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)"
+        let labels = [
+            hideClaudeFromTray ? nil : "Claude \(claudeTrayTitle)",
+            hideCodexFromTray ? nil : "Codex \(codexTrayTitle)"
+        ].compactMap { $0 }
+        return labels.isEmpty ? "OpenCodex Quota Tray" : labels.joined(separator: ", ")
     }
 
     private let worker: PauseWorker?
@@ -287,18 +274,23 @@ final class TrayViewModel: ObservableObject {
         guard let worker else { return }
         do {
             let result = try await worker.refresh()
+            hideCodexFromTray = result.codexSummary.hideFromTray
             codexRows = result.codexSummary.rows
             codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
             errorMessage = nil
             if let claudeSummary = result.claudeSummary {
+                hideClaudeFromTray = claudeSummary.hideFromTray
                 claudeRows = claudeSummary.rows
                 claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
             } else {
+                hideClaudeFromTray = false
                 claudeTrayTitle = "!"
             }
             claudeErrorMessage = result.claudeErrorMessage
         } catch {
             errorMessage = error.localizedDescription
+            hideCodexFromTray = false
+            hideClaudeFromTray = false
             codexTrayTitle = "!"
         }
     }

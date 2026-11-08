@@ -93,7 +93,8 @@ public enum OpenCodexResponseDecoder {
                 plan: dto.plan,
                 isMain: dto.isMain ?? false,
                 paused: dto.paused,
-                weeklyUsedPercent: dto.quota?.weeklyPercent
+                weeklyUsedPercent: dto.quota?.weeklyPercent,
+                fiveHourUsedPercent: dto.quota?.fiveHourPercent
             )
         }
     }

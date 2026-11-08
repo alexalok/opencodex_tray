@@ -7,6 +7,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let isMain: Bool
     public let paused: Bool
     public let weeklyUsedPercent: Double?
+    public let fiveHourUsedPercent: Double?
 
     public init(
         id: String,
@@ -14,7 +15,8 @@ public struct OpenCodexAccount: Equatable, Sendable {
         plan: String?,
         isMain: Bool,
         paused: Bool,
-        weeklyUsedPercent: Double?
+        weeklyUsedPercent: Double?,
+        fiveHourUsedPercent: Double? = nil
     ) {
         self.id = id
         self.alias = alias
@@ -22,6 +24,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
         self.isMain = isMain
         self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
+        self.fiveHourUsedPercent = fiveHourUsedPercent
     }
 }
 
@@ -65,6 +68,7 @@ public struct AccountAllowance: Equatable, Sendable, Identifiable {
 public struct QuotaSummary: Equatable, Sendable {
     public let trayPercentage: Int?
     public let rows: [AccountAllowance]
+    public var hideFromTray: Bool = false
 }
 
 public struct ClaudeAccountAllowance: Equatable, Sendable, Identifiable {
@@ -91,6 +95,11 @@ public struct ClaudeQuotaSummary: Equatable, Sendable {
     public let fiveHourRemainingPercentage: Int?
     public let weeklyRemainingPercentage: Int?
     public let rows: [ClaudeAccountAllowance]
+
+    public var hideFromTray: Bool {
+        exceedsTrayThreshold(rows.map(\.fiveHourRemainingPercent))
+            && exceedsTrayThreshold(rows.map(\.weeklyRemainingPercent))
+    }
 
     public init(
         fiveHourRemainingPercentage: Int?,
@@ -147,7 +156,17 @@ public enum QuotaCalculator {
             return QuotaSummary(trayPercentage: nil, rows: rows)
         }
         let percentage = floorStable(rows.reduce(0) { $0 + ($1.remainingPercent ?? 0) })
-        return QuotaSummary(trayPercentage: percentage, rows: rows)
+        let fiveHourRemaining = accounts.map { account in
+            account.fiveHourUsedPercent.flatMap { used in
+                proEquivalentFactor(plan: account.plan).map { max(100 - max(used, 0), 0) * $0 }
+            }
+        }
+        return QuotaSummary(
+            trayPercentage: percentage,
+            rows: rows,
+            hideFromTray: exceedsTrayThreshold(fiveHourRemaining)
+                && exceedsTrayThreshold(rows.map(\.remainingPercent))
+        )
     }
 
     private static func proEquivalentFactor(plan: String?) -> Double? {
@@ -186,4 +205,9 @@ private func floorStable(_ value: Double) -> Int {
     let nearestInteger = value.rounded()
     let stabilized = abs(value - nearestInteger) < 1e-9 ? nearestInteger : value
     return Int(floor(stabilized))
+}
+
+private func exceedsTrayThreshold(_ values: [Double?]) -> Bool {
+    guard !values.isEmpty, values.allSatisfy({ $0?.isFinite == true }) else { return false }
+    return values.reduce(0) { $0 + ($1 ?? 0) } > 95
 }

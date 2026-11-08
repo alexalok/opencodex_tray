@@ -56,6 +56,12 @@ For example, `3%` 5-hour utilization and `12%` weekly utilization displays as
 `97%/88%`. Like Codex, each Claude pool total is absolute across accounts and
 can exceed `100%`. A missing window displays `—` in only that slot.
 
+Providers disappear from the menu-bar label when both 5-hour and weekly pool
+remaining allowances exceed `95%` (using unrounded totals and the existing pool
+units). They remain in the dropdown. Missing quota or refresh errors keep the
+provider visible. If both providers are hidden, a small chart icon keeps the
+menu accessible.
+
 ## Configure
 
 Finder-launched apps do not reliably inherit shell environment. Create:
