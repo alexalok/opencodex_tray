@@ -174,6 +174,7 @@ public enum QuotaCalculator {
         switch plan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "pro": 1
         case "prolite": 0.25
+        case "plus": 0.05
         default: nil
         }
     }

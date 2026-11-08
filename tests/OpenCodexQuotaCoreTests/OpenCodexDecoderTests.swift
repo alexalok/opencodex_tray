@@ -79,6 +79,49 @@ final class OpenCodexDecoderTests: XCTestCase {
         )])
     }
 
+    func testPlusAccountWithFiveHourWindowKeepsKnownWeeklyAllowance() throws {
+        // Short-window utilization must not replace the independent weekly reading,
+        // even when the five-hour window is exhausted.
+        for shortPercent in [0, 67, 100] {
+            let accounts = try decodeCodexAccounts([
+                #"{"id":"pro-id","alias":"Pro","plan":"pro","quota":{"weeklyPercent":26}}"#,
+                """
+                {"id":"plus-id","alias":"Plus","plan":"plus","autoSwitchThresholdOverride":99,"quota":{"weeklyPercent":28,"weeklyResetAt":1792306760,"shortPercent":\(shortPercent),"shortResetAt":1791804021,"shortWindowSeconds":18000}}
+                """,
+            ])
+            let summary = QuotaCalculator.summarize(accounts: accounts)
+
+            XCTAssertEqual(accounts[1].weeklyUsedPercent, 28)
+            XCTAssertEqual(summary.rows[1].remainingPercent ?? -1, 3.55, accuracy: 1e-9)
+            XCTAssertEqual(summary.rows[1].totalPercent, 4.95)
+            XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "Plus: 3.55%/4.95%")
+            XCTAssertEqual(DisplayFormatter.codexAllowance(summary.rows[1]), "3.55% / 4.95%")
+            XCTAssertEqual(summary.trayPercentage, 77)
+        }
+    }
+
+    func testPlusPlanNormalizationWithoutThresholdUsesFullWeeklyAllowance() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"plus-id","alias":"Plus","plan":" Plus ","quota":{"weeklyPercent":28,"shortPercent":67,"shortWindowSeconds":18000}}"#,
+        ])
+        let summary = QuotaCalculator.summarize(accounts: accounts)
+
+        XCTAssertEqual(summary.rows[0].remainingPercent, 3.6)
+        XCTAssertEqual(summary.rows[0].totalPercent, 5)
+        XCTAssertEqual(summary.trayPercentage, 3)
+    }
+
+    func testPlusShortWindowDoesNotInventMissingWeeklyAllowance() throws {
+        let accounts = try decodeCodexAccounts([
+            #"{"id":"plus-id","alias":"Plus","plan":"plus","quota":{"shortPercent":67,"shortWindowSeconds":18000}}"#,
+        ])
+        let summary = QuotaCalculator.summarize(accounts: accounts)
+
+        XCTAssertNil(summary.rows[0].remainingPercent)
+        XCTAssertEqual(summary.rows[0].totalPercent, 5)
+        XCTAssertNil(summary.trayPercentage)
+    }
+
     func testPoolAccountReplacesDuplicateMainInRowsAndTotalRegardlessOfOrder() throws {
         let main = #"{"id":"main","email":"P***L@example.com","plan":" Pro ","isMain":true,"quota":{"weeklyPercent":20,"weeklyResetAt":1789000000}}"#
         let other = #"{"id":"other-id","alias":"teammate","email":"t***e@example.com","plan":"pro","isMain":false,"quota":{"weeklyPercent":6,"weeklyResetAt":1789100000}}"#
