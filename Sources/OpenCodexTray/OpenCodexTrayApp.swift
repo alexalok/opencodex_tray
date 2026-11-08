@@ -85,57 +85,46 @@ struct OpenCodexTrayApp: App {
             .onAppear { model.refreshLaunchAtLogin() }
         } label: {
             TrayStatusLabel(
-                zaiLimits: model.zaiTrayTitle,
-                claudeLimits: model.claudeTrayTitle,
-                codexPercentage: model.codexTrayTitle,
-                hasExpiringReset: model.hasExpiringReset,
+                providers: model.trayProviders,
                 accessibilityLabel: model.trayAccessibilityLabel
-                    + (model.hasExpiringReset ? ", banked reset expires in less than 7 days" : "")
             )
         }
         .menuBarExtraStyle(.menu)
     }
 }
 
+/// One provider group in the menu-bar label. Hidden providers are simply absent.
+struct TrayProviderLabel: Equatable {
+    let name: String
+    let iconName: String
+    let text: String
+    let hasExpiringReset: Bool
+}
+
 @MainActor
 private struct TrayStatusLabel: View {
-    let zaiLimits: String?
-    let claudeLimits: String
-    let codexPercentage: String
-    let hasExpiringReset: Bool
+    let providers: [TrayProviderLabel]
     let accessibilityLabel: String
 
     @ViewBuilder
     var body: some View {
-        if let claudeIcon = ProviderIconStore.cgImage(named: "ProviderIcon-claude"),
-           let codexIcon = ProviderIconStore.cgImage(named: "ProviderIcon-codex") {
-            Self.statusImage(
-                zaiIcon: ProviderIconStore.cgImage(named: "ProviderIcon-zai"),
-                zaiLimits: zaiLimits,
-                claudeIcon: claudeIcon,
-                claudeLimits: claudeLimits,
-                codexIcon: codexIcon,
-                codexPercentage: codexPercentage,
-                hasExpiringReset: hasExpiringReset,
-                accessibilityLabel: accessibilityLabel
-            )
-        } else {
-            Text("Claude \(claudeLimits)  Codex \(codexPercentage)\(hasExpiringReset ? " 🎟 !" : "")" + (zaiLimits.map { "  Z.ai \($0)" } ?? ""))
-                .monospacedDigit()
+        if providers.isEmpty {
+            // Every provider has ample quota; keep the menu reachable.
+            Image(systemName: "chart.bar")
                 .accessibilityLabel(accessibilityLabel)
+        } else {
+            Self.statusImage(providers: providers, accessibilityLabel: accessibilityLabel)
         }
     }
 
-    private static func statusImage(
-        zaiIcon: CGImage?,
-        zaiLimits: String?,
-        claudeIcon: CGImage,
-        claudeLimits: String,
-        codexIcon: CGImage,
-        codexPercentage: String,
-        hasExpiringReset: Bool,
-        accessibilityLabel: String
-    ) -> Image {
+    private struct Group {
+        let icon: CGImage?
+        let text: String
+        let textWidth: CGFloat
+        let hasExpiringReset: Bool
+    }
+
+    private static func statusImage(providers: [TrayProviderLabel], accessibilityLabel: String) -> Image {
         let height: CGFloat = 16
         let iconSize: CGFloat = 14
         let iconTextGap: CGFloat = 3
@@ -143,67 +132,48 @@ private struct TrayStatusLabel: View {
         let fontSize = NSFont.systemFontSize
         let font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .regular)
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
-        let claudeTextWidth = ceil((claudeLimits as NSString).size(withAttributes: attributes).width)
-        let codexTextWidth = ceil((codexPercentage as NSString).size(withAttributes: attributes).width)
-        let warningWidth: CGFloat = hasExpiringReset ? iconTextGap + iconSize + iconTextGap + 6 : 0
-        let zaiText = zaiLimits.map { zaiIcon == nil ? "Z.ai \($0)" : $0 } ?? ""
-        let zaiIconWidth: CGFloat = zaiIcon == nil ? 0 : iconSize + iconTextGap
-        let zaiWidth = zaiLimits == nil ? 0 : groupGap + zaiIconWidth + ceil((zaiText as NSString).size(withAttributes: attributes).width)
-        let width = iconSize + iconTextGap + claudeTextWidth
-            + groupGap + iconSize + iconTextGap + codexTextWidth + warningWidth + zaiWidth
+        func textWidth(_ text: String) -> CGFloat {
+            ceil((text as NSString).size(withAttributes: attributes).width)
+        }
+        let groups = providers.map { provider in
+            // A provider without a bundled icon falls back to its name inside the label.
+            let icon = ProviderIconStore.cgImage(named: provider.iconName)
+            let text = icon == nil ? "\(provider.name) \(provider.text)" : provider.text
+            return Group(icon: icon, text: text, textWidth: textWidth(text), hasExpiringReset: provider.hasExpiringReset)
+        }
+        let markWidth = textWidth("!")
+        let warningWidth = iconTextGap + iconSize + iconTextGap + markWidth
+        func groupWidth(_ group: Group) -> CGFloat {
+            (group.icon == nil ? 0 : iconSize + iconTextGap) + group.textWidth
+                + (group.hasExpiringReset ? warningWidth : 0)
+        }
+        let width = groups.reduce(CGFloat.zero) { $0 + groupWidth($1) }
+            + CGFloat(max(groups.count - 1, 0)) * groupGap
         let textFont = Font.system(size: fontSize).monospacedDigit()
 
         return Image(size: CGSize(width: width, height: height), label: Text(accessibilityLabel)) { context in
-            var claudeIcon = context.resolve(Image(decorative: claudeIcon, scale: 1))
-            claudeIcon.shading = .color(.white)
-            context.draw(
-                claudeIcon,
-                in: CGRect(x: 0, y: 1, width: iconSize, height: iconSize)
-            )
-
-            var claudeText = context.resolve(Text(claudeLimits).font(textFont))
-            claudeText.shading = .color(.white)
-            let claudeTextX = iconSize + iconTextGap
-            context.draw(
-                claudeText,
-                at: CGPoint(x: claudeTextX, y: height / 2),
-                anchor: .leading
-            )
-
-            let codexIconX = claudeTextX + claudeTextWidth + groupGap
-            var codexIcon = context.resolve(Image(decorative: codexIcon, scale: 1))
-            codexIcon.shading = .color(.white)
-            context.draw(
-                codexIcon,
-                in: CGRect(x: codexIconX, y: 1, width: iconSize, height: iconSize)
-            )
-
-            var codexText = context.resolve(Text(codexPercentage).font(textFont))
-            codexText.shading = .color(.white)
-            context.draw(
-                codexText,
-                at: CGPoint(x: codexIconX + iconSize + iconTextGap, y: height / 2),
-                anchor: .leading
-            )
-            if zaiLimits != nil {
-                let zaiX = width - zaiWidth + groupGap
-                if let zaiIcon {
-                    var icon = context.resolve(Image(decorative: zaiIcon, scale: 1))
+            var x: CGFloat = 0
+            for group in groups {
+                var textX = x
+                if let groupIcon = group.icon {
+                    var icon = context.resolve(Image(decorative: groupIcon, scale: 1))
                     icon.shading = .color(.white)
-                    context.draw(icon, in: CGRect(x: zaiX, y: 1, width: iconSize, height: iconSize))
+                    context.draw(icon, in: CGRect(x: x, y: 1, width: iconSize, height: iconSize))
+                    textX += iconSize + iconTextGap
                 }
-                var text = context.resolve(Text(zaiText).font(textFont))
+                var text = context.resolve(Text(group.text).font(textFont))
                 text.shading = .color(.white)
-                context.draw(text, at: CGPoint(x: zaiX + zaiIconWidth, y: height / 2), anchor: .leading)
-            }
-            if hasExpiringReset {
-                let ticketX = codexIconX + iconSize + iconTextGap + codexTextWidth + iconTextGap
-                var ticket = context.resolve(Image(systemName: "ticket"))
-                ticket.shading = .color(.white)
-                context.draw(ticket, in: CGRect(x: ticketX, y: 1, width: iconSize, height: iconSize))
-                var mark = context.resolve(Text("!").font(textFont))
-                mark.shading = .color(.white)
-                context.draw(mark, at: CGPoint(x: ticketX + iconSize + iconTextGap, y: height / 2), anchor: .leading)
+                context.draw(text, at: CGPoint(x: textX, y: height / 2), anchor: .leading)
+                if group.hasExpiringReset {
+                    let ticketX = textX + group.textWidth + iconTextGap
+                    var ticket = context.resolve(Image(systemName: "ticket"))
+                    ticket.shading = .color(.white)
+                    context.draw(ticket, in: CGRect(x: ticketX, y: 1, width: iconSize, height: iconSize))
+                    var mark = context.resolve(Text("!").font(textFont))
+                    mark.shading = .color(.white)
+                    context.draw(mark, at: CGPoint(x: ticketX + iconSize + iconTextGap, y: height / 2), anchor: .leading)
+                }
+                x += groupWidth(group) + groupGap
             }
         }
         .renderingMode(.template)
@@ -275,6 +245,30 @@ final class TrayViewModel: ObservableObject {
         codexRows.contains { $0.expiringReset(at: displayDate) != nil }
     }
 
+    // Ample-quota hiding from the last successful refresh; errors and disabled providers reset it.
+    @Published private(set) var codexHasAmpleQuota = false
+    @Published private(set) var claudeHasAmpleQuota = false
+    @Published private(set) var zaiHasAmpleQuota = false
+
+    /// An expiring banked reset is actionable, so it keeps Codex in the menu bar.
+    var hideCodexFromTray: Bool { codexHasAmpleQuota && !hasExpiringReset }
+    var hideClaudeFromTray: Bool { claudeHasAmpleQuota }
+    var hideZaiFromTray: Bool { zaiHasAmpleQuota }
+
+    var trayProviders: [TrayProviderLabel] {
+        var providers: [TrayProviderLabel] = []
+        if !hideClaudeFromTray {
+            providers.append(TrayProviderLabel(name: "Claude", iconName: "ProviderIcon-claude", text: claudeTrayTitle, hasExpiringReset: false))
+        }
+        if !hideCodexFromTray {
+            providers.append(TrayProviderLabel(name: "Codex", iconName: "ProviderIcon-codex", text: codexTrayTitle, hasExpiringReset: hasExpiringReset))
+        }
+        if let zaiTrayTitle, !hideZaiFromTray {
+            providers.append(TrayProviderLabel(name: "Z.ai", iconName: "ProviderIcon-zai", text: zaiTrayTitle, hasExpiringReset: false))
+        }
+        return providers
+    }
+
     @Published private(set) var zaiRows: [ClaudeAccountAllowance] = []
     @Published private(set) var zaiTrayTitle: String?
     @Published private(set) var zaiErrorMessage: String?
@@ -292,7 +286,14 @@ final class TrayViewModel: ObservableObject {
     @Published private(set) var launchAtLoginErrorMessage: String?
 
     var trayAccessibilityLabel: String {
-        "Claude \(claudeTrayTitle), Codex \(codexTrayTitle)" + (zaiTrayTitle.map { ", Z.ai \($0), 5-hour / 1-week remaining" } ?? "")
+        let providers = trayProviders
+        guard !providers.isEmpty else {
+            return "OpenCodex Quota Tray, every pool above \(Int(TrayVisibility.hideThresholdPercent))% remaining"
+        }
+        var parts = providers.map { "\($0.name) \($0.text)" }
+        if providers.contains(where: { $0.name == "Z.ai" }) { parts.append("5-hour / 1-week remaining") }
+        if hasExpiringReset { parts.append("banked reset expires in less than 7 days") }
+        return parts.joined(separator: ", ")
     }
 
     private let refresher: QuotaRefresher?
@@ -387,22 +388,27 @@ final class TrayViewModel: ObservableObject {
         zaiErrorMessage = snapshot.zaiErrorMessage
         zaiTrayTitle = snapshot.zaiSummary.flatMap { $0.rows.isEmpty ? nil : DisplayFormatter.claudeTrayTitle($0) }
             ?? (snapshot.zaiErrorMessage == nil ? nil : "!")
+        zaiHasAmpleQuota = snapshot.zaiErrorMessage == nil && snapshot.zaiSummary?.hideFromTray == true
         codexRows = []
         claudeRows = []
         if let codexSummary = snapshot.codexSummary {
             codexRows = codexSummary.rows
             codexTrayTitle = codexEnabled ? DisplayFormatter.trayTitle(codexSummary.trayPercentage) : "–"
+            codexHasAmpleQuota = codexEnabled && codexSummary.hideFromTray
             errorMessage = nil
         } else {
             codexTrayTitle = "!"
+            codexHasAmpleQuota = false
             errorMessage = snapshot.codexErrorMessage
         }
         if let claudeSummary = snapshot.claudeSummary {
             claudeRows = claudeSummary.rows
             claudeTrayTitle = claudeEnabled ? DisplayFormatter.claudeTrayTitle(claudeSummary) : "–"
+            claudeHasAmpleQuota = claudeEnabled && claudeSummary.hideFromTray
             claudeErrorMessage = nil
         } else {
             claudeTrayTitle = "!"
+            claudeHasAmpleQuota = false
             claudeErrorMessage = snapshot.claudeErrorMessage
         }
     }

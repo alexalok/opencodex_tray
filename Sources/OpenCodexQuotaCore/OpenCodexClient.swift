@@ -171,6 +171,7 @@ public enum OpenCodexResponseDecoder {
                 isMain: dto.isMain ?? false,
                 paused: dto.paused ?? false,
                 weeklyUsedPercent: dto.quota?.weeklyPercent,
+                fiveHourUsedPercent: dto.quota?.codexFiveHourPercent,
                 autoSwitchThreshold: dto.autoSwitchThresholdOverride?.value ?? globalAutoSwitchThreshold
             )
         }
@@ -257,6 +258,11 @@ private struct QuotaDTO: Decodable {
     let fiveHourPercent: Double?
     let weeklyPercent: Double?
     let weeklyResetAt: Double?
+    /// The Codex pool reports its five-hour burst window as `shortPercent`; the
+    /// per-account provider probe spells the same idea `fiveHourPercent`.
+    let shortPercent: Double?
+
+    var codexFiveHourPercent: Double? { fiveHourPercent ?? shortPercent }
 }
 private struct ClaudeAccountsResponse: Decodable { let accounts: [ClaudeAccountDTO] }
 private struct ClaudeAccountDTO: Decodable {
