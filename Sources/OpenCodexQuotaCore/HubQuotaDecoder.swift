@@ -12,10 +12,12 @@ public enum HubQuotaDecoder {
             throw ConfigurationError.invalid("Hub quota response exceeds account limit")
         }
         let codexAccounts = try codex.accounts.map { row in
-            try validate(row.weeklyPercent, row.autoSwitchThreshold)
+            try validate(row.weeklyPercent, row.fiveHourPercent, row.autoSwitchThreshold)
             return OpenCodexAccount(id: row.id, alias: row.alias, plan: row.plan,
                 isMain: row.isMain ?? false, paused: row.paused ?? false,
                 weeklyUsedPercent: row.weeklyPercent,
+                // Hubs that omit Codex five-hour usage leave it unknown, which keeps Codex visible.
+                fiveHourUsedPercent: row.fiveHourPercent,
                 resetCreditExpirations: try row.resetCreditExpirations.map { values in
                     try values.map { value in
                         guard let date = date(value) else { throw ConfigurationError.invalid("Invalid hub reset date") }

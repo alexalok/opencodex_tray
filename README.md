@@ -94,6 +94,23 @@ For example, `3%` 5-hour utilization and `12%` weekly utilization displays as
 `97%/88%`. Like Codex, each Claude pool total is absolute across accounts and
 can exceed `100%`. A missing window displays `—` in only that slot.
 
+## Ample-quota hiding
+
+A provider disappears from the menu-bar label when both its 5-hour and weekly
+pool remaining totals exceed `95%`. The check uses the unrounded totals in the
+existing pool units (Pro-equivalent for Codex, raw for Claude and Z.ai) and only
+unpaused Codex accounts. The dropdown keeps every provider and row.
+
+Missing quota, unknown plans, refresh errors, and disabled providers keep the
+provider visible, and an expiring banked reset keeps Codex visible so its ticket
+warning stays in view. If every provider is hidden, a small chart icon keeps the
+menu accessible.
+
+Codex 5-hour usage comes from the account's `quota.fiveHourPercent` or, as
+OpenCodex's Codex pool reports it, `quota.shortPercent`. Accounts without a
+short window keep Codex visible. Hub quota responses currently carry no Codex
+5-hour usage, so hub clients keep Codex in the menu bar.
+
 ## Configure
 
 Finder-launched apps do not reliably inherit shell environment. Optionally
