@@ -37,9 +37,12 @@ accounts without a valid override retain `100` native allowance. Threshold `0`
 disables auto-switching and also means `100` allowance. Thresholds must be integers
 from `0` to `100`; malformed optional fields do not break quota refresh.
 
-Display converts all values to
-Pro-equivalent units: `pro = 1`, `prolite = 0.25` because one Pro percentage
-point equals four ProLite percentage points.
+Display converts weekly allowances to Pro-equivalent units using fixed display
+weights: `pro = 1`, `prolite = 0.25`, `plus = 0.05`. These weights preserve the
+app's normalization convention; they are not a guarantee of current provider
+capacity ratios. Plus accounts with a separate five-hour window still contribute
+their weekly allowance. Short-window usage never substitutes for missing weekly
+usage, and the weekly pool total does not describe five-hour availability.
 
 ```text
 native remaining = max(native allowance - weekly usage, 0)
