@@ -34,6 +34,27 @@ private actor FakeOpenCodexClient: OpenCodexServing {
 }
 
 final class WorkerTests: XCTestCase {
+    func testCachedNormalizationDoesNotRepeatPauseOrCompoundScaling() async throws {
+        let client = FakeOpenCodexClient(accounts: [
+            OpenCodexAccount(id: "a", alias: "workmate", plan: "prolite", isMain: false,
+                paused: false, weeklyUsedPercent: 70),
+            OpenCodexAccount(id: "b", alias: nil, plan: "prolite", isMain: false,
+                paused: false, weeklyUsedPercent: 20),
+        ], claudeAccounts: [ClaudeAccount(id: "c", alias: nil, email: nil, plan: "pro",
+            fiveHourUsedPercent: 50, weeklyUsedPercent: 20)])
+        let worker = PauseWorker(client: client, targetAlias: "workmate", thresholdPercent: 70)
+        let result = try await worker.refresh()
+        XCTAssertEqual(result.codexSummary.trayPercentage, 40)
+        let lite = try result.normalized(using: SubscriptionSettings(codex: .proLite, claude: .max5x))
+        XCTAssertEqual(lite.codexSummary.trayPercentage, 80)
+        XCTAssertEqual(lite.claudeSummary?.fiveHourRemainingPercentage, 10)
+        XCTAssertEqual(lite.claudeSummary?.weeklyRemainingPercentage, 16)
+        let back = try lite.normalized(using: SubscriptionSettings(codex: .pro))
+        XCTAssertEqual(back.codexSummary.trayPercentage, 40)
+        let pauses = await client.pauses()
+        XCTAssertEqual(pauses, ["a"])
+    }
+
     func testClaudeFailureDoesNotBlockCodexPause() async throws {
         let client = FakeOpenCodexClient(
             accounts: [
@@ -78,7 +99,7 @@ final class WorkerTests: XCTestCase {
 
         let result = try await worker.refresh()
 
-        XCTAssertEqual(result.codexSummary.trayPercentage, 4)
+        XCTAssertEqual(result.codexSummary.trayPercentage, 8)
         XCTAssertEqual(result.claudeSummary?.fiveHourRemainingPercentage, 140)
         XCTAssertEqual(result.claudeSummary?.weeklyRemainingPercentage, 120)
         XCTAssertEqual(result.claudeSummary?.rows.map(\.label), ["work", "personal"])

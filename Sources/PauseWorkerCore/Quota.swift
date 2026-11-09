@@ -32,6 +32,7 @@ public struct ClaudeAccount: Equatable, Sendable {
     public let id: String
     public let alias: String?
     public let email: String?
+    public let plan: String?
     public let fiveHourUsedPercent: Double?
     public let weeklyUsedPercent: Double?
 
@@ -39,12 +40,14 @@ public struct ClaudeAccount: Equatable, Sendable {
         id: String,
         alias: String?,
         email: String?,
+        plan: String? = nil,
         fiveHourUsedPercent: Double? = nil,
         weeklyUsedPercent: Double?
     ) {
         self.id = id
         self.alias = alias
         self.email = email
+        self.plan = plan
         self.fiveHourUsedPercent = fiveHourUsedPercent
         self.weeklyUsedPercent = weeklyUsedPercent
     }
@@ -130,7 +133,8 @@ public enum QuotaCalculator {
     public static func summarize(
         accounts: [OpenCodexAccount],
         targetAlias: String,
-        thresholdPercent: Double
+        thresholdPercent: Double,
+        baseline: CodexBaseline = .pro
     ) throws -> QuotaSummary {
         let targetMatches = accounts.filter { $0.alias == targetAlias }
         if targetMatches.isEmpty { throw QuotaError.targetAliasNotFound(targetAlias) }
@@ -138,7 +142,7 @@ public enum QuotaCalculator {
 
         let rows = accounts.map { account in
             let nativeTotal = account.alias == targetAlias ? thresholdPercent : 100
-            let factor = proEquivalentFactor(plan: account.plan)
+            let factor = baseline.factor(for: account.plan)
             let total = factor.map { nativeTotal * $0 }
             let remaining = account.weeklyUsedPercent.flatMap { used in
                 factor.map { max(nativeTotal - max(used, 0), 0) * $0 }
@@ -156,36 +160,36 @@ public enum QuotaCalculator {
             return QuotaSummary(trayPercentage: nil, rows: rows)
         }
         let percentage = floorStable(rows.reduce(0) { $0 + ($1.remainingPercent ?? 0) })
-        let fiveHourRemaining = accounts.map { account in
-            account.fiveHourUsedPercent.flatMap { used in
-                proEquivalentFactor(plan: account.plan).map { max(100 - max(used, 0), 0) * $0 }
-            }
-        }
+        let sessionAccounts = accounts.filter { !CodexBaseline.hasUncappedSession(plan: $0.plan) }
+        // Pro has no 5h cap. Only Plus/native baselines have comparable finite
+        // session units; missing data on a limited account still keeps it visible.
+        let fiveHourHealthy = !accounts.isEmpty && (sessionAccounts.isEmpty ||
+            ((baseline == .plus || baseline == .native) && exceedsTrayThreshold(sessionAccounts.map { account in
+                account.fiveHourUsedPercent.flatMap { used in
+                    baseline.factor(for: account.plan).map { max(100 - max(used, 0), 0) * $0 }
+                }
+            })))
         return QuotaSummary(
             trayPercentage: percentage,
             rows: rows,
-            hideFromTray: exceedsTrayThreshold(fiveHourRemaining)
+            hideFromTray: fiveHourHealthy
                 && exceedsTrayThreshold(rows.map(\.remainingPercent))
         )
-    }
-
-    private static func proEquivalentFactor(plan: String?) -> Double? {
-        switch plan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "pro": 1
-        case "prolite": 0.25
-        default: nil
-        }
     }
 }
 
 public enum ClaudeQuotaCalculator {
-    public static func summarize(accounts: [ClaudeAccount]) -> ClaudeQuotaSummary {
+    public static func summarize(accounts: [ClaudeAccount], baseline: ClaudeBaseline = .native) -> ClaudeQuotaSummary {
         let rows = accounts.map { account in
             ClaudeAccountAllowance(
                 accountId: account.id,
                 label: account.alias ?? account.email ?? account.id,
-                fiveHourRemainingPercent: account.fiveHourUsedPercent.map { max(100 - max($0, 0), 0) },
-                weeklyRemainingPercent: account.weeklyUsedPercent.map { max(100 - max($0, 0), 0) }
+                fiveHourRemainingPercent: account.fiveHourUsedPercent.flatMap { used in
+                    baseline.factor(for: account.plan, weekly: false).map { max(100 - max(used, 0), 0) * $0 }
+                },
+                weeklyRemainingPercent: account.weeklyUsedPercent.flatMap { used in
+                    baseline.factor(for: account.plan, weekly: true).map { max(100 - max(used, 0), 0) * $0 }
+                }
             )
         }
         return ClaudeQuotaSummary(

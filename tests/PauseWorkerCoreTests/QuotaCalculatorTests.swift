@@ -14,10 +14,10 @@ final class QuotaCalculatorTests: XCTestCase {
             thresholdPercent: 70
         )
 
-        XCTAssertEqual(summary.trayPercentage, 4)
+        XCTAssertEqual(summary.trayPercentage, 8)
         XCTAssertEqual(summary.rows, [
             AccountAllowance(accountId: "main-id", label: "main", remainingPercent: 0, totalPercent: 100),
-            AccountAllowance(accountId: "friend-id", label: "workmate", remainingPercent: 4.25, totalPercent: 17.5),
+            AccountAllowance(accountId: "friend-id", label: "workmate", remainingPercent: 8.5, totalPercent: 35),
         ])
     }
 
@@ -98,7 +98,7 @@ final class QuotaCalculatorTests: XCTestCase {
     func testFloatingPointNoiseDoesNotFloorExactPercentageOnePointLow() throws {
         let summary = try QuotaCalculator.summarize(
             accounts: [
-                OpenCodexAccount(id: "main-id", alias: nil, plan: "pro", isMain: true, paused: false, weeklyUsedPercent: 17.525),
+                OpenCodexAccount(id: "main-id", alias: nil, plan: "pro", isMain: true, paused: false, weeklyUsedPercent: 34.05),
                 OpenCodexAccount(id: "friend-id", alias: "workmate", plan: "prolite", isMain: false, paused: false, weeklyUsedPercent: 3.9),
             ],
             targetAlias: "workmate",

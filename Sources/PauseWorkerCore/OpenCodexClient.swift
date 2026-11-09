@@ -94,7 +94,7 @@ public enum OpenCodexResponseDecoder {
                 isMain: dto.isMain ?? false,
                 paused: dto.paused,
                 weeklyUsedPercent: dto.quota?.weeklyPercent,
-                fiveHourUsedPercent: dto.quota?.fiveHourPercent
+                fiveHourUsedPercent: dto.quota?.codexFiveHourPercent
             )
         }
     }
@@ -105,6 +105,7 @@ public enum OpenCodexResponseDecoder {
                 id: dto.id,
                 alias: dto.alias,
                 email: dto.email,
+                plan: dto.plan,
                 fiveHourUsedPercent: dto.quota?.fiveHourPercent,
                 weeklyUsedPercent: dto.quota?.weeklyPercent
             )
@@ -135,6 +136,15 @@ private struct AccountDTO: Decodable {
     let quota: QuotaDTO?
 }
 private struct QuotaDTO: Decodable {
+    let shortPercent: Double?
+    let shortWindowSeconds: Double?
+
+    var codexFiveHourPercent: Double? {
+        guard let shortPercent else { return fiveHourPercent }
+        guard shortWindowSeconds == nil || shortWindowSeconds == 18_000 else { return nil }
+        return shortPercent
+    }
+
     let fiveHourPercent: Double?
     let weeklyPercent: Double?
 }
@@ -143,6 +153,7 @@ private struct ClaudeAccountDTO: Decodable {
     let id: String
     let alias: String?
     let email: String?
+    let plan: String?
     let quota: QuotaDTO?
 }
 private struct PauseRequest: Encodable { let id: String; let paused: Bool }

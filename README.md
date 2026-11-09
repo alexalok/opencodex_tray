@@ -18,49 +18,50 @@ turns its per-account quota data into at-a-glance pool totals.
 ## Quota math
 
 Target alias native allowance equals `PAUSE_THRESHOLD_PERCENT` (default `70`).
-Every other account has `100` native allowance. Display converts all values to
-Pro-equivalent units: `pro = 1`, `prolite = 0.25` because one Pro percentage
-point equals four ProLite percentage points.
+Every other account has `100` native allowance. Choose the subscription that
+counts as `100%` in **Settings → Codex: 100% equals** or
+**Settings → Claude: 100% equals**. Choices persist across app launches and
+redraw the latest snapshot immediately, without another network request.
+
+Defaults use Codex Pro $200 units and Claude native
+percentages per account. Pause thresholds always use native percentages.
+The headless `pause-worker-once` command retains these defaults; menu preferences
+apply to the tray app only.
 
 ```text
-native remaining = max(native allowance - weekly usage, 0)
-Pro-equivalent value = native value * plan factor
-tray = floor(sum(Pro-equivalent remaining))
+native remaining = max(native allowance - usage, 0)
+normalized remaining = native remaining × account capacity / baseline capacity
+tray = floor(sum(normalized remaining))
 ```
 
-Example:
+Codex baselines are Plus, Pro $100, Pro $200, Pro $500, and
+**Each account (native)**. The upstream IDs `plus`, `prolite`, `pro`, and
+`promax` have current relative capacities `1 : 10 : 20 : 50`.
+Native mode adds unscaled account percentages.
 
-```text
-main (Pro): 0%/100%
-workmate (ProLite): 4.25%/17.5%
-tray: floor(0 + 4.25) = 4%
-```
+For example, Pro $100 at 53% used with a 70% pause threshold contributes 8.5%
+in Pro $200 units, 17% in Pro $100/native units, or 170% in Plus units.
+Missing quota or unsupported plans show `—`. All Pro tiers have no five-hour
+limit, so their absence of session quota does not prevent hiding a healthy
+Pro-only pool. Limited accounts still need known, comparable session quota.
 
-Tray total represents absolute Pro-equivalent allowance, not ratio. Multiple
-accounts can therefore produce values above `100%`.
+Claude baselines are Pro, Max, Ultra (formerly Max 20×), and
+**Each account (native)**. Weekly capacities are `1 : 5 : 10`; Pro and Max
+5-hour capacities are `1 : 5`. Rows and tray show **5-hour / 1-week** remaining.
+Ultra has no 5-hour cap for verified accounts, and its temporary unverified
+cap has no published conversion. Any normalized session comparison involving
+Ultra therefore shows `—`; the tray does not guess verification status or
+infinite capacity. Native mode keeps the raw window percentages where available.
+Missing or ambiguous plan metadata cannot be normalized.
 
-Missing weekly quota or unknown plan displays `—` and makes tray total `—`
-rather than inventing capacity. Pause threshold comparison stays in each
-account's native percentage; normalization changes display math only.
+Pool totals can exceed `100%`. Providers disappear from the menu-bar label
+when both 5-hour and weekly remaining totals exceed `95%` in the selected
+baseline units. They remain in the dropdown. Unknown windows and refresh
+errors keep the provider visible. If both providers are hidden, a chart icon
+keeps the menu accessible.
 
-Claude converts OpenCodex's raw per-account Anthropic utilization to remaining
-allowance. No plan conversion is applied:
-
-```text
-Claude remaining = max(100 - usage, 0)
-Claude row = 5-hour remaining / 1-week remaining
-Claude tray = floor(sum(5-hour remaining)) / floor(sum(1-week remaining))
-```
-
-For example, `3%` 5-hour utilization and `12%` weekly utilization displays as
-`97%/88%`. Like Codex, each Claude pool total is absolute across accounts and
-can exceed `100%`. A missing window displays `—` in only that slot.
-
-Providers disappear from the menu-bar label when both 5-hour and weekly pool
-remaining allowances exceed `95%` (using unrounded totals and the existing pool
-units). They remain in the dropdown. Missing quota or refresh errors keep the
-provider visible. If both providers are hidden, a small chart icon keeps the
-menu accessible.
+See [subscription identifiers and evidence](docs/subscription-baselines.md)
+for mappings and limits of these comparisons.
 
 ## Configure
 
@@ -141,7 +142,7 @@ artifact is `dist/OpenCodexTray.zip`. Environment variables override values
 loaded from `.env`.
 
 Tray title shows Claude icon + remaining Claude pool `5h/1w` allowance, then
-Codex icon + Pro-equivalent Codex pool percentage. Click it for separate
+Codex icon + normalized Codex pool percentage. Click it for separate
 `Codex Pool` and `Claude Pool (5h/1w)` sections with per-account rows,
 `Refresh Now`, errors, and `Quit`. `Launch at Login` registers the app through
 macOS Service Management. If macOS requires approval, use

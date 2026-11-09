@@ -2,6 +2,12 @@ import XCTest
 @testable import PauseWorkerCore
 
 final class OpenCodexDecoderTests: XCTestCase {
+    func testCodexShortWindowUsesActualPayloadKeyAndRejectsOtherDurations() throws {
+        let data = Data(#"{"accounts":[{"id":"a","paused":false,"quota":{"shortPercent":20,"shortWindowSeconds":18000}},{"id":"b","paused":false,"quota":{"shortPercent":30,"shortWindowSeconds":3600}},{"id":"c","paused":false,"quota":{"shortPercent":40}},{"id":"d","paused":false,"quota":{"fiveHourPercent":50}}]}"#.utf8)
+        let accounts = try OpenCodexResponseDecoder.decodeAccounts(data)
+        XCTAssertEqual(accounts.map(\.fiveHourUsedPercent), [20, nil, 40, 50])
+    }
+
     func testPreservesAccountPlanForCapacityNormalization() throws {
         let data = Data(#"{"accounts":[{"id":"friend-id","alias":"workmate","plan":"prolite","isMain":false,"paused":false,"quota":{"weeklyPercent":53}}]}"#.utf8)
 

@@ -21,7 +21,7 @@ struct OpenCodexTrayApp: App {
     var body: some Scene {
         MenuBarExtra {
             Group {
-            Section("Codex Pool") {
+            Section("Codex Pool (100% = \(model.subscriptionSettings.codex.label))") {
                 if model.codexRows.isEmpty {
                     Text(model.errorMessage == nil ? "Loading…" : "Unavailable")
                 } else {
@@ -30,7 +30,7 @@ struct OpenCodexTrayApp: App {
                     }
                 }
             }
-            Section("Claude Pool (5h/1w)") {
+            Section("Claude Pool (5h/1w; \(model.subscriptionSettings.claude.label))") {
                 if model.claudeRows.isEmpty {
                     Text(model.errorMessage == nil && model.claudeErrorMessage == nil ? "Loading…" : "Unavailable")
                 } else {
@@ -38,6 +38,10 @@ struct OpenCodexTrayApp: App {
                         Text(DisplayFormatter.claudeRow(row))
                     }
                 }
+            }
+            if model.subscriptionSettings.claude != .native {
+                Text("Ultra 5h: —; no fixed session capacity")
+                Text("Unknown plans: —; use native for account percentages")
             }
             if let error = model.errorMessage {
                 Divider()
@@ -48,6 +52,24 @@ struct OpenCodexTrayApp: App {
                 Text("Claude error: \(error)")
             }
             Divider()
+            Menu("Settings") {
+                Picker("Codex: 100% equals", selection: Binding(
+                    get: { model.subscriptionSettings.codex },
+                    set: { model.setCodexBaseline($0) }
+                )) {
+                    ForEach(CodexBaseline.allCases, id: \.self) { baseline in
+                        Text(baseline.label).tag(baseline)
+                    }
+                }
+                Picker("Claude: 100% equals", selection: Binding(
+                    get: { model.subscriptionSettings.claude },
+                    set: { model.setClaudeBaseline($0) }
+                )) {
+                    ForEach(ClaudeBaseline.allCases, id: \.self) { baseline in
+                        Text(baseline.label).tag(baseline)
+                    }
+                }
+            }
             Toggle("Launch at Login", isOn: Binding(
                 get: { model.launchAtLoginEnabled },
                 set: { model.setLaunchAtLogin($0) }
@@ -199,6 +221,27 @@ final class TrayViewModel: ObservableObject {
         return labels.isEmpty ? "OpenCodex Quota Tray" : labels.joined(separator: ", ")
     }
 
+    @Published private(set) var subscriptionSettings: SubscriptionSettings
+    private let subscriptionStore: SubscriptionSettingsStore
+    private var lastRefresh: WorkerRefresh?
+
+    func setCodexBaseline(_ baseline: CodexBaseline) {
+        subscriptionSettings.codex = baseline
+        saveAndRedraw()
+    }
+
+    func setClaudeBaseline(_ baseline: ClaudeBaseline) {
+        subscriptionSettings.claude = baseline
+        saveAndRedraw()
+    }
+
+    private func saveAndRedraw() {
+        subscriptionStore.save(subscriptionSettings)
+        guard let lastRefresh, errorMessage == nil else { return }
+        do { apply(try lastRefresh.normalized(using: subscriptionSettings)) }
+        catch { errorMessage = error.localizedDescription }
+    }
+
     private let worker: PauseWorker?
     private let launchAtLoginController: LaunchAtLoginController
     private let interval: TimeInterval
@@ -210,6 +253,9 @@ final class TrayViewModel: ObservableObject {
         startupError: String? = nil,
         launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
     ) {
+        let subscriptionStore = SubscriptionSettingsStore()
+        self.subscriptionStore = subscriptionStore
+        self.subscriptionSettings = subscriptionStore.load()
         self.worker = worker
         self.interval = interval
         self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
@@ -274,25 +320,35 @@ final class TrayViewModel: ObservableObject {
         guard let worker else { return }
         do {
             let result = try await worker.refresh()
-            hideCodexFromTray = result.codexSummary.hideFromTray
-            codexRows = result.codexSummary.rows
-            codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
-            errorMessage = nil
-            if let claudeSummary = result.claudeSummary {
-                hideClaudeFromTray = claudeSummary.hideFromTray
-                claudeRows = claudeSummary.rows
-                claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
-            } else {
-                hideClaudeFromTray = false
-                claudeTrayTitle = "!"
-            }
-            claudeErrorMessage = result.claudeErrorMessage
+            lastRefresh = result
+            apply(try result.normalized(using: subscriptionSettings))
         } catch {
             errorMessage = error.localizedDescription
             hideCodexFromTray = false
             hideClaudeFromTray = false
+            codexRows = []
+            claudeRows = []
             codexTrayTitle = "!"
+            claudeTrayTitle = "!"
+            lastRefresh = nil
         }
+    }
+
+    private func apply(_ result: WorkerRefresh) {
+        hideCodexFromTray = result.codexSummary.hideFromTray
+        codexRows = result.codexSummary.rows
+        codexTrayTitle = DisplayFormatter.trayTitle(result.codexSummary.trayPercentage)
+        errorMessage = nil
+        if let claudeSummary = result.claudeSummary {
+            hideClaudeFromTray = claudeSummary.hideFromTray
+            claudeRows = claudeSummary.rows
+            claudeTrayTitle = DisplayFormatter.claudeTrayTitle(claudeSummary)
+        } else {
+            hideClaudeFromTray = false
+            claudeRows = []
+            claudeTrayTitle = "!"
+        }
+        claudeErrorMessage = result.claudeErrorMessage
     }
 }
 
