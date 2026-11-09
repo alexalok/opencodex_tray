@@ -99,6 +99,7 @@ final class OpenCodexClientTests: XCTestCase {
                 label: "workmate",
                 remainingPercent: 7.5,
                 totalPercent: 25,
+                fiveHourLimitAbsent: true,
                 resetCreditExpirations: []
             ),
         ])

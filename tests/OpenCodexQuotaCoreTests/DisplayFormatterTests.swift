@@ -9,8 +9,15 @@ final class DisplayFormatterTests: XCTestCase {
             accountId: "friend-id",
             label: "workmate",
             remainingPercent: 4.25,
-            totalPercent: 17.5
-        )), "workmate: 4.25%/17.5%")
+            totalPercent: 17.5,
+            fiveHourRemainingPercent: 22.5
+        )), "workmate: 22.5%/4.25%")
+        XCTAssertEqual(DisplayFormatter.codexTrayTitle(QuotaSummary(trayPercentage: 4, rows: [
+            AccountAllowance(accountId: "a", label: "a", remainingPercent: 4.25, totalPercent: 17.5, fiveHourRemainingPercent: 22.5),
+        ])), "22%/4%")
+        XCTAssertEqual(DisplayFormatter.codexTrayTitle(QuotaSummary(trayPercentage: 4, rows: [
+            AccountAllowance(accountId: "a", label: "a", remainingPercent: 4.25, totalPercent: 17.5, fiveHourLimitAbsent: true),
+        ])), "—/4%")
     }
 
     func testFormatsClaudeFiveHourThenWeeklyRemainingForTrayAndDropdown() {
@@ -42,14 +49,15 @@ final class DisplayFormatterTests: XCTestCase {
             accountId: "codex-a",
             label: "main",
             remainingPercent: 68,
-            totalPercent: 100
-        )), "68% / 100%")
+            totalPercent: 100,
+            fiveHourRemainingPercent: 90
+        )), "90% / 68%")
         XCTAssertEqual(DisplayFormatter.codexAllowance(AccountAllowance(
             accountId: "codex-b",
             label: "workmate",
             remainingPercent: nil,
             totalPercent: 17.5
-        )), "— / 17.5%")
+        )), "— / —")
         XCTAssertEqual(DisplayFormatter.claudeAllowance(ClaudeAccountAllowance(
             accountId: "claude-a",
             label: "work",

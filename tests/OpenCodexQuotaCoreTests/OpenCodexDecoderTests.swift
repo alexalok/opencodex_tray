@@ -75,7 +75,8 @@ final class OpenCodexDecoderTests: XCTestCase {
             alias: "workmate",
             plan: "prolite",
             isMain: false,
-            weeklyUsedPercent: 53
+            weeklyUsedPercent: 53,
+            fiveHourLimitAbsent: true
         )])
     }
 
@@ -94,8 +95,9 @@ final class OpenCodexDecoderTests: XCTestCase {
             XCTAssertEqual(accounts[1].weeklyUsedPercent, 28)
             XCTAssertEqual(summary.rows[1].remainingPercent ?? -1, 3.55, accuracy: 1e-9)
             XCTAssertEqual(summary.rows[1].totalPercent, 4.95)
-            XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "Plus: 3.55%/4.95%")
-            XCTAssertEqual(DisplayFormatter.codexAllowance(summary.rows[1]), "3.55% / 4.95%")
+            let fiveHour = ["0": "4.95%", "67": "1.6%", "100": "0%"]["\(shortPercent)"]!
+            XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "Plus: \(fiveHour)/3.55%")
+            XCTAssertEqual(DisplayFormatter.codexAllowance(summary.rows[1]), "\(fiveHour) / 3.55%")
             XCTAssertEqual(summary.trayPercentage, 77)
         }
     }
@@ -133,8 +135,8 @@ final class OpenCodexDecoderTests: XCTestCase {
 
             XCTAssertEqual(accounts.map(\.id), ["other-id", "personal-pool"])
             XCTAssertEqual(summary.rows, [
-                AccountAllowance(accountId: "other-id", label: "teammate", remainingPercent: 94, totalPercent: 100),
-                AccountAllowance(accountId: "personal-pool", label: "personal-pool", remainingPercent: 80, totalPercent: 100),
+                AccountAllowance(accountId: "other-id", label: "teammate", remainingPercent: 94, totalPercent: 100, fiveHourLimitAbsent: true),
+                AccountAllowance(accountId: "personal-pool", label: "personal-pool", remainingPercent: 80, totalPercent: 100, fiveHourLimitAbsent: true),
             ])
             XCTAssertEqual(summary.trayPercentage, 174)
         }
@@ -149,7 +151,7 @@ final class OpenCodexDecoderTests: XCTestCase {
         let summary = QuotaCalculator.summarize(accounts: accounts)
 
         XCTAssertEqual(summary.rows, [
-            AccountAllowance(accountId: "pool-id", label: "personal", remainingPercent: 77, totalPercent: 100),
+            AccountAllowance(accountId: "pool-id", label: "personal", remainingPercent: 77, totalPercent: 100, fiveHourLimitAbsent: true),
         ])
         XCTAssertEqual(summary.trayPercentage, 77)
     }
@@ -275,10 +277,11 @@ final class OpenCodexDecoderTests: XCTestCase {
         XCTAssertEqual(summary.trayPercentage, 80)
         XCTAssertEqual(summary.rows.count, 2)
         XCTAssertEqual(summary.rows[1].remainingPercent, 22)
-        XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "personal: 22%/25% (paused)")
-        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "work: 80%/100%")
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[1]), "personal: —/22% (paused)")
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "work: —/80%")
         let restored = try JSONDecoder().decode(QuotaSummary.self, from: JSONEncoder().encode(summary))
-        XCTAssertEqual(DisplayFormatter.row(restored.rows[1]), "personal: 22%/25% (paused)")
+        XCTAssertEqual(DisplayFormatter.row(restored.rows[1]), "personal: —/22% (paused)")
+        XCTAssertEqual(restored, summary)
     }
 
     func testPausedUnknownQuotaOrPlanDoesNotMakeActiveTotalUnknown() throws {
@@ -312,7 +315,7 @@ final class OpenCodexDecoderTests: XCTestCase {
                     XCTAssertEqual(summary.trayPercentage, poolPaused ? 0 : 86)
                     XCTAssertEqual(
                         summary.rows.first.map(DisplayFormatter.row),
-                        poolPaused ? "personal: 86%/100% (paused)" : "personal: 86%/100%"
+                        poolPaused ? "personal: —/86% (paused)" : "personal: —/86%"
                     )
                 }
             }
@@ -323,7 +326,10 @@ final class OpenCodexDecoderTests: XCTestCase {
         let data = Data(#"{"trayPercentage":80,"rows":[{"accountId":"old","label":"old","remainingPercent":80,"totalPercent":100}]}"#.utf8)
         let summary = try JSONDecoder().decode(QuotaSummary.self, from: data)
 
-        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "old: 80%/100%")
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "old: —/80%")
+        // Old snapshots cannot prove an absent five-hour limit, so Codex stays visible.
+        XCTAssertFalse(summary.rows[0].fiveHourLimitAbsent)
+        XCTAssertFalse(summary.fiveHourUnlimited)
     }
 
     private func decodeCodexAccounts(_ accounts: [String]) throws -> [OpenCodexAccount] {

@@ -25,7 +25,7 @@ struct OpenCodexTrayApp: App {
         MenuBarExtra {
             Group {
             Text(model.sourceLabel)
-            Section("Codex Pool") {
+            Section("Codex Pool (5h/1w)") {
                 if model.codexRows.isEmpty {
                     Text(!model.codexEnabled ? "Disabled" : model.errorMessage == nil ? "No accounts" : "Unavailable")
                 } else {
@@ -393,7 +393,7 @@ final class TrayViewModel: ObservableObject {
         claudeRows = []
         if let codexSummary = snapshot.codexSummary {
             codexRows = codexSummary.rows
-            codexTrayTitle = codexEnabled ? DisplayFormatter.trayTitle(codexSummary.trayPercentage) : "–"
+            codexTrayTitle = codexEnabled ? DisplayFormatter.codexTrayTitle(codexSummary) : "–"
             codexHasAmpleQuota = codexEnabled && codexSummary.hideFromTray
             errorMessage = nil
         } else {

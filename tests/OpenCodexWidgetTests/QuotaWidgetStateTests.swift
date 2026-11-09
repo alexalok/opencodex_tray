@@ -119,9 +119,9 @@ final class QuotaWidgetStateTests: XCTestCase {
         XCTAssertEqual(model.claude.rows.map(\.label), ["work", "personal"])
         XCTAssertEqual(model.claude.rows.map(\.value), ["97% / 88%", "94% / 88%"])
         XCTAssertEqual(model.claude.overflowCount, 1)
-        XCTAssertEqual(model.codex.total, "94%")
+        XCTAssertEqual(model.codex.total, "135%/94%")
         XCTAssertEqual(model.codex.rows.map(\.label), ["main", "workmate"])
-        XCTAssertEqual(model.codex.rows.map(\.value), ["68% / 100%", "16% / 17.5%"])
+        XCTAssertEqual(model.codex.rows.map(\.value), ["90% / 68%", "20% / 16%"])
         XCTAssertEqual(model.codex.overflowCount, 1)
     }
 
@@ -168,12 +168,25 @@ final class QuotaWidgetStateTests: XCTestCase {
         )
         XCTAssertEqual(
             model.codex.accessibilityLabel,
-            "Codex, remaining: 68 percent"
+            "Codex, 5-hour remaining: 90 percent; 1-week remaining: 68 percent"
         )
         XCTAssertEqual(
             model.codex.rows.map(\.accessibilityLabel),
-            ["Codex main, remaining: 68 percent of 100 percent"]
+            ["Codex main, 5-hour remaining: 90 percent; 1-week remaining: 68 percent"]
         )
+    }
+
+    func testCodexAccessibilitySpeaksUnlimitedFiveHourPool() {
+        let model = QuotaWidgetViewModel(content: .snapshot(makeSnapshot(
+            codex: makeCodexSummary(rows: [
+                AccountAllowance(accountId: "pro", label: "pro", remainingPercent: 68, totalPercent: 100, fiveHourLimitAbsent: true),
+            ]),
+            claude: makeClaudeSummary()
+        ), stale: false))
+
+        XCTAssertEqual(model.codex.total, "—/68%")
+        XCTAssertEqual(model.codex.accessibilityLabel, "Codex, 5-hour remaining: unlimited; 1-week remaining: 68 percent")
+        XCTAssertEqual(model.codex.rows.map(\.accessibilityLabel), ["Codex pro, 5-hour remaining: no limit; 1-week remaining: 68 percent"])
     }
 
     func testClaudeAccessibilitySpeaksUnknownForPartialValues() {

@@ -172,6 +172,8 @@ public enum OpenCodexResponseDecoder {
                 paused: dto.paused ?? false,
                 weeklyUsedPercent: dto.quota?.weeklyPercent,
                 fiveHourUsedPercent: dto.quota?.codexFiveHourPercent,
+                // A reported weekly window without a short one means the plan has no five-hour limit.
+                fiveHourLimitAbsent: dto.quota?.weeklyPercent != nil && dto.quota?.codexFiveHourPercent == nil,
                 autoSwitchThreshold: dto.autoSwitchThresholdOverride?.value ?? globalAutoSwitchThreshold
             )
         }

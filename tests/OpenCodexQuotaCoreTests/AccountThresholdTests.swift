@@ -9,8 +9,8 @@ final class AccountThresholdTests: XCTestCase {
         XCTAssertEqual(summary.rows[0].totalPercent, 12.5)
         XCTAssertEqual(summary.rows[0].remainingPercent, 7.5)
         XCTAssertEqual(summary.trayPercentage, 7)
-        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "Lite: 7.5%/12.5%")
-        XCTAssertEqual(DisplayFormatter.codexAllowance(summary.rows[0]), "7.5% / 12.5%")
+        XCTAssertEqual(DisplayFormatter.row(summary.rows[0]), "Lite: —/7.5%")
+        XCTAssertEqual(DisplayFormatter.codexAllowance(summary.rows[0]), "— / 7.5%")
     }
     func testThresholdClampsRemainingAndPreservesPausedAndUnknownQuotaRules() throws {
         let accounts = try OpenCodexResponseDecoder.decodeAccounts(Data(#"{"accounts":[{"id":"over","plan":"prolite","autoSwitchThresholdOverride":50,"quota":{"weeklyPercent":60}},{"id":"paused","paused":true,"plan":"pro","autoSwitchThresholdOverride":50,"quota":{"weeklyPercent":10}},{"id":"negative","plan":"prolite","autoSwitchThresholdOverride":50,"quota":{"weeklyPercent":-5}}]}"#.utf8))

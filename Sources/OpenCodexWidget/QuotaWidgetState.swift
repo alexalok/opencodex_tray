@@ -171,24 +171,28 @@ struct QuotaWidgetViewModel: Equatable {
 
     private static func codexProvider(_ summary: QuotaSummary) -> QuotaWidgetProviderModel {
         QuotaWidgetProviderModel(
-            total: DisplayFormatter.trayTitle(summary.trayPercentage),
+            total: DisplayFormatter.codexTrayTitle(summary),
             rows: summary.rows.prefix(2).map {
                 QuotaWidgetRowModel(
                     id: $0.id,
                     label: $0.label,
                     value: DisplayFormatter.codexAllowance($0) + ($0.paused ? " (paused)" : ""),
-                    accessibilityLabel: "Codex \($0.label), remaining: "
-                        + QuotaSpokenText.percent($0.remainingPercent)
-                        + " of "
-                        + QuotaSpokenText.percent($0.totalPercent)
+                    accessibilityLabel: "Codex \($0.label), "
+                        + QuotaSpokenText.claudePeriods(
+                            fiveHour: $0.fiveHourLimitAbsent ? "no limit" : QuotaSpokenText.percent($0.fiveHourRemainingPercent),
+                            weekly: QuotaSpokenText.percent($0.remainingPercent)
+                        )
                         + ($0.paused ? ", paused" : ""),
                     paused: $0.paused
                 )
             },
             overflowCount: max(summary.rows.count - 2, 0),
             isUnavailable: false,
-            accessibilityLabel: "Codex, remaining: "
-                + QuotaSpokenText.percent(summary.trayPercentage)
+            accessibilityLabel: "Codex, "
+                + QuotaSpokenText.claudePeriods(
+                    fiveHour: summary.fiveHourUnlimited ? "unlimited" : QuotaSpokenText.percent(summary.fiveHourPercentage),
+                    weekly: QuotaSpokenText.percent(summary.trayPercentage)
+                )
         )
     }
 

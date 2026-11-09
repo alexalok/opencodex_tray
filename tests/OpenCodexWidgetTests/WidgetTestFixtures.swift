@@ -9,7 +9,8 @@ func makeCodexSummary(
             accountId: "codex-main",
             label: "main",
             remainingPercent: 68,
-            totalPercent: 100
+            totalPercent: 100,
+            fiveHourRemainingPercent: 90
         ),
     ]
 ) -> QuotaSummary {
@@ -63,19 +64,22 @@ func makeThreeAccountSnapshot() -> QuotaSnapshot {
             accountId: "codex-main",
             label: "main",
             remainingPercent: 68,
-            totalPercent: 100
+            totalPercent: 100,
+            fiveHourRemainingPercent: 90
         ),
         AccountAllowance(
             accountId: "codex-work",
             label: "workmate",
             remainingPercent: 16,
-            totalPercent: 17.5
+            totalPercent: 17.5,
+            fiveHourRemainingPercent: 20
         ),
         AccountAllowance(
             accountId: "codex-third",
             label: "third",
             remainingPercent: 10,
-            totalPercent: 25
+            totalPercent: 25,
+            fiveHourRemainingPercent: 25
         ),
     ]
     let claudeRows = [
