@@ -14,12 +14,7 @@ verify_resources() {
 
 "$ROOT/scripts/build-app.sh" >/dev/null
 
-WIDGET="$APP/Contents/PlugIns/OpenCodexWidget.appex"
-test -x "$WIDGET/Contents/MacOS/OpenCodexWidget"
-test "$(plutil -extract CFBundleIdentifier raw -o - "$WIDGET/Contents/Info.plist")" = "local.opencodex.quota-tray.widget"
-test -f "$WIDGET/Contents/Resources/ProviderIcon-claude.svg"
-test -f "$WIDGET/Contents/Resources/ProviderIcon-codex.svg"
-test -f "$WIDGET/Contents/Resources/CodexBar-LICENSE.txt"
+test ! -e "$APP/Contents/PlugIns"
 codesign --verify --deep --strict --verbose=4 "$APP"
 
 if strings -a "$APP/Contents/MacOS/OpenCodexTray" | grep -Eq -- '/Users/|\.build/'; then
