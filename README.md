@@ -79,7 +79,7 @@ Environment variables override config-file values:
 
 | Variable | Default |
 | --- | --- |
-| `POLL_INTERVAL_MS` | `60000` (values below a minute are raised to it) |
+| `POLL_INTERVAL_MS` | `60000` (values below a minute are raised to it; the label and countdowns still update every minute) |
 | `REQUEST_TIMEOUT_MS` | `30000` |
 | `OPENCODEX_BASE_URL` | `http://127.0.0.1:10100` |
 | `OPENCODEX_HOME` | `$HOME/.opencodex` |

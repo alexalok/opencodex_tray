@@ -19,6 +19,21 @@ final class TrayLabelPlannerTests: XCTestCase {
         XCTAssertEqual(planner.update(quota(codex(99, 96)), now: minute(0)), [])
     }
 
+    func testSlowPollingStillTicksEveryMinute() {
+        var every = TrayTickSchedule(pollInterval: 60)
+        XCTAssertEqual((0..<3).map { _ in every.next() }, [true, true, true])
+        var slow = TrayTickSchedule(pollInterval: 300)
+        XCTAssertEqual((0..<11).map { _ in slow.next() }, [true, false, false, false, false, true, false, false, false, false, true])
+        var odd = TrayTickSchedule(pollInterval: 90)
+        XCTAssertEqual((0..<4).map { _ in odd.next() }, [true, false, true, false])
+
+        // Between reads the planner replays the held quota, so a change still hides after a minute.
+        var planner = TrayLabelPlanner()
+        let held = quota(codex(39.5, 99))
+        XCTAssertEqual(planner.update(held, now: minute(0)).count, 1)
+        XCTAssertEqual(planner.update(held, now: minute(1)), [])
+    }
+
     func testChangeIsShownForOneMinuteThenHidden() {
         var planner = TrayLabelPlanner()
         XCTAssertEqual(planner.update(quota(codex(39.5, 99)), now: minute(0)), [TrayLabelItem(provider: "openai", text: "39%/99%")])

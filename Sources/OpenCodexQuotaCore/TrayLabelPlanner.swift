@@ -67,3 +67,25 @@ public struct TrayLabelPlanner: Sendable {
         return items
     }
 }
+
+/// The tray advances on a one-minute tick so label expiry and countdowns never wait on a read;
+/// a slower configured poll interval only skips the read on the ticks in between.
+public struct TrayTickSchedule: Sendable {
+    public static let tick: TimeInterval = 60
+    public let ticksPerRead: Int
+    private var ticksSinceRead: Int?
+
+    public init(pollInterval: TimeInterval) {
+        ticksPerRead = max(1, Int((pollInterval / Self.tick).rounded(.up)))
+    }
+
+    /// Advances one tick and tells whether it reads; the first tick always does.
+    public mutating func next() -> Bool {
+        if let elapsed = ticksSinceRead, elapsed + 1 < ticksPerRead {
+            ticksSinceRead = elapsed + 1
+            return false
+        }
+        ticksSinceRead = 0
+        return true
+    }
+}

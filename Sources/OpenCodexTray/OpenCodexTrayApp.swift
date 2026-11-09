@@ -207,8 +207,8 @@ private enum ProviderIconStore {
 
 @MainActor
 final class TrayViewModel: ObservableObject {
-    /// Reads, label changes and countdowns all advance on this one tick, never faster than a minute.
-    static let minimumTick: TimeInterval = 60
+    /// Label changes and countdowns advance every minute; reads follow the configured poll interval.
+    static let minimumTick: TimeInterval = TrayTickSchedule.tick
 
     @Published private(set) var displayDate = Date()
     @Published private(set) var quota: TrayQuota?
@@ -227,7 +227,7 @@ final class TrayViewModel: ObservableObject {
     }
 
     private let refresher: QuotaRefresher?
-    private let tick: TimeInterval
+    private var schedule: TrayTickSchedule
     private let launchAtLoginController: LaunchAtLoginController
     private var planner = TrayLabelPlanner()
     private var pollingTask: Task<Void, Never>?
@@ -239,7 +239,7 @@ final class TrayViewModel: ObservableObject {
         launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
     ) {
         self.refresher = refresher
-        self.tick = max(pollInterval, Self.minimumTick)
+        self.schedule = TrayTickSchedule(pollInterval: pollInterval)
         self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
         self.errorMessage = startupError
         syncLaunchAtLoginState()
@@ -262,8 +262,8 @@ final class TrayViewModel: ObservableObject {
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                await self.refresh()
-                try? await Task.sleep(for: .seconds(self.tick), tolerance: .seconds(5))
+                if self.schedule.next() { await self.refresh() } else { self.replan() }
+                try? await Task.sleep(for: .seconds(TrayTickSchedule.tick), tolerance: .seconds(5))
             }
         }
     }
@@ -288,11 +288,16 @@ final class TrayViewModel: ObservableObject {
         guard let refresher else { return }
         let load = await refresher.refresh()
         let now = Date()
-        displayDate = now
         sourceLabel = load.sourceLabel ?? "OpenCodex source unavailable"
         errorMessage = load.errorMessage
         if quota != load.quota { quota = load.quota }
-        let items = planner.update(load.quota, now: now)
+        replan(at: now)
+    }
+
+    /// Re-evaluates the label and countdowns against the last read without touching the network.
+    private func replan(at now: Date = Date()) {
+        displayDate = now
+        let items = planner.update(quota, now: now)
         if labelItems != items { labelItems = items }
     }
 }
