@@ -27,6 +27,15 @@ private actor LinkHTTP: QuotaHTTPServing {
     }
 }
 
+private actor HubHTTP: QuotaHTTPServing {
+    var paths: [String] = []
+    func get(_ url: URL, headers: [String: String]) async throws -> Data {
+        paths.append(url.path)
+        guard url.path == "/healthz" else { XCTFail("Unexpected endpoint \(url)"); throw URLError(.badURL) }
+        return Data(#"{"service":"opencodex","role":"client"}"#.utf8)
+    }
+}
+
 final class TrayQuotaLoaderTests: XCTestCase {
     private let host = URL(string: "http://127.0.0.1:10100")!
     private static let hostURL = URL(string: "http://127.0.0.1:10100")!
@@ -67,5 +76,20 @@ final class TrayQuotaLoaderTests: XCTestCase {
         let after = await http.paths.dropFirst(before)
         XCTAssertEqual(after.first, "/api/machine/hub-relay/api/quota-pool/tray")
         XCTAssertTrue(after.contains("/api/machine/status"))
+    }
+
+    func testDirectHubClientFailsWithoutReading() async throws {
+        let http = HubHTTP()
+        let loader = TrayQuotaLoader(baseURL: host, http: http) { role in
+            try QuotaConnection.resolve(hostURL: Self.hostURL, runningRole: role,
+                configData: Data(#"{"runtimeRole":"client","client":{"transport":"hub","managementTransport":"direct","serverUrl":"https://hub.example.test","apiKeyId":"client-1","connectedAt":"date","tokenFingerprint":"505a8c497606f899f72232a403399922417b7ca910dd96f341a44d1658a22a8f"}}"#.utf8),
+                adminToken: "local-secret", dataToken: "hub-token")
+        }
+        let load = await loader.load()
+        XCTAssertNil(load.quota)
+        XCTAssertEqual(load.sourceLabel, "Hub: hub.example.test")
+        XCTAssertEqual(load.errorMessage, "Direct Hub clients are not supported; connect this machine with Link")
+        let paths = await http.paths
+        XCTAssertEqual(paths, ["/healthz"])
     }
 }

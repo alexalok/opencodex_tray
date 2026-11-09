@@ -57,6 +57,11 @@ public actor TrayQuotaLoader: TrayQuotaLoading {
             let role = try await probe.role(at: baseURL)
             let connection = try resolve(role)
             label = connection.label
+            // A direct Hub client holds only a data key, which the Hub's management read does not
+            // admit, and its listener relays nothing; only Link clients reach the Home's tray read.
+            guard connection.mode != .hub else {
+                throw ConfigurationError.invalid("Direct Hub clients are not supported; connect this machine with Link")
+            }
             let session = try await probe.validate(connection)
             let headers = connection.mode == .local
                 ? ["Authorization": "Bearer \(connection.token)", "Accept": "application/json"]

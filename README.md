@@ -85,8 +85,10 @@ Environment variables override config-file values:
 | `OPENCODEX_HOME` | `$HOME/.opencodex` |
 
 Standalone and Home hosts read `/api/quota-pool/tray` locally with
-`admin-api-token`. Connected clients read the Home's view through
+`admin-api-token`. Link clients read the Home's view through
 `/api/machine/hub-relay/api/quota-pool/tray` with their enrolled credentials.
+Direct Hub clients are not supported: the tray shows an error asking to connect
+with Link.
 HTTPS is required for remote origins, and credentialed requests refuse
 redirects.
 
