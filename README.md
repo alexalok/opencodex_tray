@@ -37,30 +37,33 @@ accounts without a valid override retain `100` native allowance. Threshold `0`
 disables auto-switching and also means `100` allowance. Thresholds must be integers
 from `0` to `100`; malformed optional fields do not break quota refresh.
 
-Display converts weekly allowances to Pro-equivalent units using fixed display
+Codex shows remaining allowance as `5h/1w`, like Claude. Display converts both
+windows to Pro-equivalent units using fixed display
 weights: `pro = 1`, `prolite = 0.25`, `plus = 0.05`. These weights preserve the
 app's normalization convention; they are not a guarantee of current provider
-capacity ratios. Plus accounts with a separate five-hour window still contribute
-their weekly allowance. Short-window usage never substitutes for missing weekly
-usage, and the weekly pool total does not describe five-hour availability.
+capacity ratios. Five-hour and weekly windows are independent: neither substitutes
+for the other when missing, and no conversion between them is assumed.
 
 ```text
-native remaining = max(native allowance - weekly usage, 0)
+native remaining = max(native allowance - window usage, 0)
 Pro-equivalent value = native value * plan factor
-tray = floor(sum(Pro-equivalent remaining for unpaused accounts))
+row = 5-hour remaining / 1-week remaining
+tray = floor(sum(5-hour remaining)) / floor(sum(1-week remaining)), unpaused accounts only
 ```
 
 For example, a ProLite account with a `50%` threshold has `12.5%` total
 Pro-equivalent allowance (`25% × 0.5`). With `20%` native weekly usage, its row
-shows `7.5% / 12.5%`. Remaining allowance clamps to zero at the threshold.
+shows `—/7.5%` (ProLite has no five-hour window). Remaining allowance clamps to
+zero at the threshold.
 Menu-bar and widget totals use the same adjusted values.
 
 Example with auto-switching disabled:
 
 ```text
-main (Pro): 0%/100%
-workmate (ProLite): 11.75%/25%
-tray: floor(0 + 11.75) = 11%
+main (Pro, weekly spent): —/0%
+workmate (ProLite): —/11.75%
+plus (Plus, 40% 5-hour / 50% weekly used): 3%/2.5%
+tray: —/floor(0 + 11.75 + 2.5) = —/14%
 ```
 
 Tray total represents absolute Pro-equivalent allowance, not ratio. Multiple
@@ -80,6 +83,16 @@ quota visible without an expiry indicator. The app never redeems reset credits.
 
 Missing weekly quota or unknown plan in an unpaused account displays `—` and makes tray total `—`
 rather than inventing capacity.
+
+OpenCodex reports the Codex five-hour window as `shortPercent`. Plans without a
+five-hour limit (currently Pro and ProLite) report only a weekly window and show
+`—` in their row's 5-hour slot. While any such account is unpaused and has weekly
+allowance left, OpenCodex can fall back to it once every five-hour window is
+spent, so the pool 5-hour total shows `—` (unlimited). Accounts without a limit
+that are paused or out of weekly allowance are skipped, and the 5-hour total sums
+the remaining real windows (in the example above, workmate keeps it unlimited).
+Hub responses and older widget caches cannot prove an absent limit; their missing
+5-hour usage stays unknown, which also shows `—` but keeps Codex in the menu bar.
 
 Claude converts OpenCodex's raw per-account Anthropic utilization to remaining
 allowance. No plan conversion is applied:
@@ -107,9 +120,9 @@ warning stays in view. If every provider is hidden, a small chart icon keeps the
 menu accessible.
 
 Codex 5-hour usage comes from the account's `quota.fiveHourPercent` or, as
-OpenCodex's Codex pool reports it, `quota.shortPercent`. Accounts without a
-short window keep Codex visible. Hub quota responses currently carry no Codex
-5-hour usage, so hub clients keep Codex in the menu bar.
+OpenCodex's Codex pool reports it, `quota.shortPercent`. An unlimited Codex 5-hour
+pool counts as ample, so weekly allowance alone decides hiding. Hub quota responses
+currently carry no Codex 5-hour usage, so hub clients keep Codex in the menu bar.
 
 ## Configure
 
@@ -212,8 +225,8 @@ artifact is `dist/OpenCodexTray.zip`. Environment variables override values
 loaded from `.env`.
 
 Tray title shows Claude icon + remaining Claude pool `5h/1w` allowance, then
-Codex icon + Pro-equivalent Codex pool percentage. Click it for separate
-`Codex Pool` and `Claude Pool (5h/1w)` sections with per-account rows,
+Codex icon + Pro-equivalent Codex pool `5h/1w` allowance. Click it for separate
+`Codex Pool (5h/1w)` and `Claude Pool (5h/1w)` sections with per-account rows,
 `Refresh Now`, errors, and `Quit`. `Launch at Login` registers the app through
 macOS Service Management. If macOS requires approval, use
 `Open Login Items Settings` from the tray menu. App has no Dock icon.

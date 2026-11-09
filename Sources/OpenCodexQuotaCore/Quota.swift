@@ -8,6 +8,9 @@ public struct OpenCodexAccount: Equatable, Sendable {
     public let paused: Bool
     public let weeklyUsedPercent: Double?
     public let fiveHourUsedPercent: Double?
+    /// True only when OpenCodex reported this account's quota without a five-hour window,
+    /// meaning the plan has no five-hour limit. False when five-hour usage is merely unknown.
+    public let fiveHourLimitAbsent: Bool
     public var resetCreditExpirations: [Date]?
     public let autoSwitchThreshold: Double?
 
@@ -19,6 +22,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
         paused: Bool = false,
         weeklyUsedPercent: Double?,
         fiveHourUsedPercent: Double? = nil,
+        fiveHourLimitAbsent: Bool = false,
         resetCreditExpirations: [Date]? = nil,
         autoSwitchThreshold: Double? = nil
     ) {
@@ -29,6 +33,7 @@ public struct OpenCodexAccount: Equatable, Sendable {
         self.paused = paused
         self.weeklyUsedPercent = weeklyUsedPercent
         self.fiveHourUsedPercent = fiveHourUsedPercent
+        self.fiveHourLimitAbsent = fiveHourLimitAbsent && fiveHourUsedPercent == nil
         self.resetCreditExpirations = resetCreditExpirations
         self.autoSwitchThreshold = autoSwitchThreshold
     }
@@ -65,6 +70,8 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
     public let totalPercent: Double?
     /// Pro-equivalent five-hour remaining allowance; nil when OpenCodex reports no short window.
     public let fiveHourRemainingPercent: Double?
+    /// The account's plan has no five-hour limit, so only its weekly allowance gates it.
+    public let fiveHourLimitAbsent: Bool
     public let resetCreditExpirations: [Date]?
 
     public init(
@@ -74,6 +81,7 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
         remainingPercent: Double?,
         totalPercent: Double?,
         fiveHourRemainingPercent: Double? = nil,
+        fiveHourLimitAbsent: Bool = false,
         resetCreditExpirations: [Date]? = nil
     ) {
         self.accountId = accountId
@@ -82,6 +90,7 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
         self.remainingPercent = remainingPercent
         self.totalPercent = totalPercent
         self.fiveHourRemainingPercent = fiveHourRemainingPercent
+        self.fiveHourLimitAbsent = fiveHourLimitAbsent && fiveHourRemainingPercent == nil
         self.resetCreditExpirations = resetCreditExpirations
     }
 
@@ -93,7 +102,8 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case accountId, label, paused, remainingPercent, totalPercent, fiveHourRemainingPercent, resetCreditExpirations
+        case accountId, label, paused, remainingPercent, totalPercent, fiveHourRemainingPercent, fiveHourLimitAbsent
+        case resetCreditExpirations
     }
 
     public init(from decoder: any Decoder) throws {
@@ -106,11 +116,15 @@ public struct AccountAllowance: Codable, Equatable, Sendable, Identifiable {
         totalPercent = try values.decodeIfPresent(Double.self, forKey: .totalPercent)
         // Older widget snapshots predate five-hour tracking; absence keeps the provider visible.
         fiveHourRemainingPercent = try values.decodeIfPresent(Double.self, forKey: .fiveHourRemainingPercent)
+        // Older snapshots cannot tell an absent five-hour limit from unknown usage; treat it as unknown.
+        let decodedLimitAbsent = try values.decodeIfPresent(Bool.self, forKey: .fiveHourLimitAbsent) ?? false
+        fiveHourLimitAbsent = fiveHourRemainingPercent == nil && decodedLimitAbsent
         resetCreditExpirations = try values.decodeIfPresent([Date].self, forKey: .resetCreditExpirations)
     }
 }
 
 public struct QuotaSummary: Codable, Equatable, Sendable {
+    /// Weekly Pro-equivalent remaining allowance across unpaused accounts.
     public let trayPercentage: Int?
     public let rows: [AccountAllowance]
 
@@ -119,11 +133,29 @@ public struct QuotaSummary: Codable, Equatable, Sendable {
         self.rows = rows
     }
 
-    /// True when every unpaused account reports both windows and the unrounded
-    /// five-hour and weekly pool totals each exceed the tray threshold.
+    private var activeRows: [AccountAllowance] { rows.filter { !$0.paused } }
+
+    /// An unpaused account without a five-hour limit that still has (or may have) weekly
+    /// allowance is a fallback once every five-hour window is spent, so the pool has no
+    /// five-hour ceiling. Accounts without a limit but with no weekly allowance left are skipped.
+    public var fiveHourUnlimited: Bool {
+        activeRows.contains { $0.fiveHourLimitAbsent && ($0.remainingPercent.map { $0 > 0 } ?? true) }
+    }
+
+    private var fiveHourWindows: [Double?] {
+        activeRows.filter { !$0.fiveHourLimitAbsent }.map(\.fiveHourRemainingPercent)
+    }
+
+    /// Five-hour Pro-equivalent remaining allowance; nil when unlimited or unknown.
+    public var fiveHourPercentage: Int? {
+        guard !fiveHourUnlimited, fiveHourWindows.allSatisfy({ $0 != nil }) else { return nil }
+        return floorStable(fiveHourWindows.reduce(0) { $0 + ($1 ?? 0) })
+    }
+
+    /// True when the five-hour pool is unlimited or its unrounded total exceeds the tray
+    /// threshold, and the unrounded weekly total of unpaused accounts exceeds it too.
     public var hideFromTray: Bool {
-        let activeRows = rows.filter { !$0.paused }
-        return exceedsTrayThreshold(activeRows.map(\.fiveHourRemainingPercent))
+        (fiveHourUnlimited || exceedsTrayThreshold(fiveHourWindows))
             && exceedsTrayThreshold(activeRows.map(\.remainingPercent))
     }
 }
@@ -190,6 +222,7 @@ public enum QuotaCalculator {
                 remainingPercent: remaining(account.weeklyUsedPercent),
                 totalPercent: total,
                 fiveHourRemainingPercent: remaining(account.fiveHourUsedPercent),
+                fiveHourLimitAbsent: account.fiveHourLimitAbsent,
                 resetCreditExpirations: account.resetCreditExpirations
             )
         }

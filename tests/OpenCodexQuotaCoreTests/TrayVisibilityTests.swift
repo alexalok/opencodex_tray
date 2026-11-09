@@ -109,4 +109,49 @@ final class TrayVisibilityTests: XCTestCase {
         XCTAssertEqual(roundTrip, current)
         XCTAssertTrue(QuotaSummary(trayPercentage: 99, rows: [roundTrip]).hideFromTray)
     }
+
+    private func noShortWindow(_ id: String, paused: Bool = false, weekly: Double?, threshold: Double? = nil) -> OpenCodexAccount {
+        OpenCodexAccount(id: id, alias: id, plan: "pro", isMain: false, paused: paused,
+            weeklyUsedPercent: weekly, fiveHourLimitAbsent: true, autoSwitchThreshold: threshold)
+    }
+
+    func testUsableAccountWithoutFiveHourLimitMakesCodexFiveHourUnlimited() {
+        let summary = QuotaCalculator.summarize(accounts: [
+            codex("plus", weekly: 50, fiveHour: 90), noShortWindow("pro", weekly: 99),
+        ])
+        XCTAssertTrue(summary.fiveHourUnlimited)
+        XCTAssertNil(summary.fiveHourPercentage)
+        XCTAssertEqual(DisplayFormatter.codexTrayTitle(summary), "—/51%")
+        // Unlimited five-hour counts as ample, so weekly alone decides hiding.
+        XCTAssertFalse(summary.hideFromTray)
+        XCTAssertTrue(QuotaCalculator.summarize(accounts: [noShortWindow("pro", weekly: 0)]).hideFromTray)
+        // Unknown weekly might still be usable, so it never invents a ceiling.
+        XCTAssertTrue(QuotaCalculator.summarize(accounts: [
+            codex("plus", weekly: 0, fiveHour: 0), noShortWindow("pro", weekly: nil),
+        ]).fiveHourUnlimited)
+    }
+
+    func testUnusableAccountsWithoutFiveHourLimitAreSkippedFromFiveHourTotal() {
+        let summary = QuotaCalculator.summarize(accounts: [
+            codex("plus", weekly: 0, fiveHour: 40),
+            noShortWindow("spent", weekly: 100),
+            noShortWindow("at-threshold", weekly: 80, threshold: 80),
+            noShortWindow("paused", paused: true, weekly: 0),
+        ])
+        XCTAssertFalse(summary.fiveHourUnlimited)
+        XCTAssertEqual(summary.fiveHourPercentage, 60)
+        XCTAssertEqual(DisplayFormatter.codexTrayTitle(summary), "60%/100%")
+    }
+
+    func testUnknownFiveHourUsageKeepsTotalUnknownWithoutClaimingUnlimited() {
+        let summary = QuotaCalculator.summarize(accounts: [codex("a", weekly: 0, fiveHour: nil)])
+        XCTAssertFalse(summary.fiveHourUnlimited)
+        XCTAssertNil(summary.fiveHourPercentage)
+        XCTAssertFalse(summary.hideFromTray)
+    }
+
+    func testDecoderMarksOnlyWeeklyOnlyQuotaAsLimitAbsent() throws {
+        let accounts = try OpenCodexResponseDecoder.decodeAccounts(Data(#"{"accounts":[{"id":"short","plan":"plus","quota":{"weeklyPercent":1,"shortPercent":2}},{"id":"weekly","plan":"pro","quota":{"weeklyPercent":1}},{"id":"none","plan":"pro","quota":null}]}"#.utf8))
+        XCTAssertEqual(accounts.map(\.fiveHourLimitAbsent), [false, true, false])
+    }
 }

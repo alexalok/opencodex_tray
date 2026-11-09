@@ -94,7 +94,8 @@ struct QuotaWidgetTimelineProvider: TimelineProvider {
                         accountId: "codex-main",
                         label: "main",
                         remainingPercent: 68,
-                        totalPercent: 100
+                        totalPercent: 100,
+                        fiveHourRemainingPercent: 90
                     ),
                 ]
             ),

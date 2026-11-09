@@ -5,10 +5,14 @@ public enum DisplayFormatter {
         percentage.map { "\($0)%" } ?? "—"
     }
 
+    /// Codex pool remaining as 5h/1w; an unlimited or unknown five-hour pool shows "—".
+    public static func codexTrayTitle(_ summary: QuotaSummary) -> String {
+        "\(percentage(summary.fiveHourPercentage))/\(percentage(summary.trayPercentage))"
+    }
+
     public static func row(_ allowance: AccountAllowance) -> String {
-        let remaining = allowance.remainingPercent.map(format) ?? "—"
-        let total = allowance.totalPercent.map(format) ?? "—"
-        return "\(allowance.label): \(remaining)%/\(total)%" + (allowance.paused ? " (paused)" : "")
+        "\(allowance.label): \(percentage(allowance.fiveHourRemainingPercent))/\(percentage(allowance.remainingPercent))"
+            + (allowance.paused ? " (paused)" : "")
     }
 
     public static func resetExpiry(_ allowance: AccountAllowance, now: Date) -> String? {
@@ -30,7 +34,7 @@ public enum DisplayFormatter {
     }
 
     public static func codexAllowance(_ allowance: AccountAllowance) -> String {
-        "\(percentage(allowance.remainingPercent)) / \(percentage(allowance.totalPercent))"
+        "\(percentage(allowance.fiveHourRemainingPercent)) / \(percentage(allowance.remainingPercent))"
     }
 
     public static func claudeAllowance(_ allowance: ClaudeAccountAllowance) -> String {
