@@ -34,15 +34,14 @@ public final class QuotaHTTPClient: QuotaHTTPServing {
         defer { bytes.task.cancel() }
         guard let response = response as? HTTPURLResponse else { throw ConfigurationError.invalid("Invalid quota HTTP response") }
         guard response.statusCode == 200 else {
-            let message: String
-            switch response.statusCode {
-            case 401: message = "Quota credential rejected; reconnect OpenCodex"
-            case 403: message = "Hub quota access not granted; enable allowQuotaRead for this client key"
-            case 404: message = "Quota endpoint unavailable; update OpenCodex hub"
-            case 300...399: message = "Quota redirects are refused; configure the final source URL"
-            default: message = "Quota source unavailable (HTTP \(response.statusCode))"
+            var body = Data()
+            if response.statusCode == 403 {
+                for try await byte in bytes {
+                    guard body.count < Self.errorBodyLimit else { break }
+                    body.append(byte)
+                }
             }
-            throw ConfigurationError.invalid(message)
+            throw ConfigurationError.invalid(Self.failureMessage(status: response.statusCode, body: body))
         }
         guard response.expectedContentLength <= 1_048_576 else { throw ConfigurationError.invalid("Quota response exceeds size limit") }
         var data = Data()
@@ -51,5 +50,23 @@ public final class QuotaHTTPClient: QuotaHTTPServing {
             data.append(byte)
         }
         return data
+    }
+
+    static let errorBodyLimit = 4_096
+    static let missingEndpointMessage = "OpenCodex lacks the tray endpoint; update OpenCodex (and the Link Home)"
+
+    /// An older OpenCodex has no tray read: the route is unknown (404), or a Link relay that does not
+    /// list it refuses it as a write (403 `link_child_read_only`). Neither is a credential problem.
+    static func failureMessage(status: Int, body: Data) -> String {
+        switch status {
+        case 401: return "Quota credential rejected; reconnect OpenCodex"
+        case 403:
+            struct Refusal: Decodable { let code: String? }
+            let code = (try? JSONDecoder().decode(Refusal.self, from: body))?.code
+            return code == "link_child_read_only" ? missingEndpointMessage : "OpenCodex refused the quota read (HTTP 403)"
+        case 404: return missingEndpointMessage
+        case 300...399: return "Quota redirects are refused; configure the final source URL"
+        default: return "Quota source unavailable (HTTP \(status))"
+        }
     }
 }

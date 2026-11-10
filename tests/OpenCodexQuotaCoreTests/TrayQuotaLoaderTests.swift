@@ -52,6 +52,16 @@ final class TrayQuotaLoaderTests: XCTestCase {
         XCTAssertThrowsError(try TrayQuota.decode(Data(#"{"schema":"ocx.quota-pool/1","generatedAt":0,"providers":[]}"#.utf8)))
     }
 
+    func testOlderOpenCodexWithoutTrayReadAsksForAnUpdate() {
+        let missing = QuotaHTTPClient.missingEndpointMessage
+        XCTAssertEqual(QuotaHTTPClient.failureMessage(status: 404, body: Data()), missing)
+        let relayRefusal = Data(#"{"error":"read only","code":"link_child_read_only","linkId":"link-1"}"#.utf8)
+        XCTAssertEqual(QuotaHTTPClient.failureMessage(status: 403, body: relayRefusal), missing)
+        let other = QuotaHTTPClient.failureMessage(status: 403, body: Data(#"{"error":"Origin rejected"}"#.utf8))
+        XCTAssertEqual(other, "OpenCodex refused the quota read (HTTP 403)")
+        XCTAssertFalse(other.contains("allowQuotaRead"))
+    }
+
     func testSteadyStateIsOneReadPerRefresh() async throws {
         let http = LinkHTTP()
         let loader = TrayQuotaLoader(baseURL: host, http: http) { role in try Self.linkConnection(role) }
