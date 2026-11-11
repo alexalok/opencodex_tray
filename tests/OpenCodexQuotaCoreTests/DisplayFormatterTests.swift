@@ -51,14 +51,27 @@ final class DisplayFormatterTests: XCTestCase {
         XCTAssertNil(DisplayFormatter.resetCredits(TrayQuotaAccount(name: "a"), now: now))
     }
 
-    func testRecoveryRow() {
-        let both = TrayQuotaProvider(provider: "openai",
-            fiveHour: TrayQuotaWindow(remainingPercent: 50, nextRecoveryAt: at(90 * 60), nextRecoveryPercent: 30.7),
-            weekly: TrayQuotaWindow(remainingPercent: 40, nextRecoveryAt: at(4 * 3_600 + 9 * 60), nextRecoveryPercent: 10))
-        XCTAssertEqual(DisplayFormatter.recovery(both, now: now), "5h/7d recovery: 1h30m (+30%) | 4h9m (+10%)")
+    func testRecoveryRowsHaveOneColumnPerAccount() {
+        // Codex: two accounts with a 5h window (the Pro has none), three with a weekly one.
+        let codex = TrayQuotaProvider(provider: "openai",
+            fiveHour: TrayQuotaWindow(remainingPercent: 50, recoveries: [
+                TrayQuotaRecovery(at: at(90 * 60), percent: 30.7), TrayQuotaRecovery(at: at(3 * 3_600), percent: 10)]),
+            weekly: TrayQuotaWindow(remainingPercent: 40, recoveries: [
+                TrayQuotaRecovery(at: at(4 * 3_600 + 9 * 60), percent: 10), TrayQuotaRecovery(at: at(86_400), percent: 5),
+                TrayQuotaRecovery(at: at(3 * 86_400 + 18 * 3_600), percent: 52)]))
+        XCTAssertEqual(DisplayFormatter.recoveries(codex, now: now), [
+            "5h recovery: 1h30m (+30%) | 3h0m (+10%)",
+            "7d recovery: 4h9m (+10%) | 1d0h (+5%) | 3d18h (+52%)",
+        ])
+        // Claude: one account, one column per row.
+        let claude = TrayQuotaProvider(provider: "anthropic",
+            fiveHour: TrayQuotaWindow(remainingPercent: 92, recoveries: [TrayQuotaRecovery(at: at(90 * 60), percent: 8)]),
+            weekly: TrayQuotaWindow(remainingPercent: 48, recoveries: [TrayQuotaRecovery(at: at(2 * 86_400), percent: 52)]))
+        XCTAssertEqual(DisplayFormatter.recoveries(claude, now: now), ["5h recovery: 1h30m (+8%)", "7d recovery: 2d0h (+52%)"])
+        // No 5h window: only the weekly row; an older OpenCodex falls back to its next recovery.
         let weekly = TrayQuotaProvider(provider: "openai",
             weekly: TrayQuotaWindow(remainingPercent: 40, nextRecoveryAt: at(7 * 3_600), nextRecoveryPercent: 10))
-        XCTAssertEqual(DisplayFormatter.recovery(weekly, now: now), "7d recovery: 7h0m (+10%)")
-        XCTAssertNil(DisplayFormatter.recovery(TrayQuotaProvider(provider: "openai", weekly: TrayQuotaWindow(remainingPercent: 100)), now: now))
+        XCTAssertEqual(DisplayFormatter.recoveries(weekly, now: now), ["7d recovery: 7h0m (+10%)"])
+        XCTAssertEqual(DisplayFormatter.recoveries(TrayQuotaProvider(provider: "openai", weekly: TrayQuotaWindow(remainingPercent: 100, recoveries: [])), now: now), [])
     }
 }

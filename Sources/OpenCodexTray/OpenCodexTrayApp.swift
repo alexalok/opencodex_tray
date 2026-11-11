@@ -29,7 +29,8 @@ struct OpenCodexTrayApp: App {
                             ForEach(Array(provider.accounts.enumerated()), id: \.offset) { _, account in
                                 AccountRow(account: account, now: model.displayDate)
                             }
-                            if let recovery = DisplayFormatter.recovery(provider, now: model.displayDate) {
+                            // Rows keep their place while the countdown text changes every minute.
+                            ForEach(Array(DisplayFormatter.recoveries(provider, now: model.displayDate).enumerated()), id: \.offset) { _, recovery in
                                 Text(recovery)
                             }
                         }
