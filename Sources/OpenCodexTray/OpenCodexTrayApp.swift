@@ -1,11 +1,8 @@
 import AppKit
-import Combine
 import Darwin
 import OpenCodexQuotaCore
-import OSLog
 import ServiceManagement
 import SwiftUI
-import WidgetKit
 
 @main
 struct OpenCodexTrayApp: App {
@@ -24,96 +21,81 @@ struct OpenCodexTrayApp: App {
     var body: some Scene {
         MenuBarExtra {
             Group {
-            Text(model.sourceLabel)
-            Section("Codex Pool (5h/1w)") {
-                if model.codexRows.isEmpty {
-                    Text(!model.codexEnabled ? "Disabled" : model.errorMessage == nil ? "No accounts" : "Unavailable")
-                } else {
-                    ForEach(model.codexRows) { row in
-                        if let expiry = DisplayFormatter.resetExpiry(row, now: model.displayDate) {
-                            Text(DisplayFormatter.row(row)).strikethrough(row.paused)
-                                + Text(" (\(Image(systemName: "ticket")) \(expiry))")
-                        } else {
-                            Text(DisplayFormatter.row(row)).strikethrough(row.paused)
+                Text(model.sourceLabel)
+                if let quota = model.quota {
+                    if quota.providers.isEmpty { Text("No quota data") }
+                    ForEach(quota.providers, id: \.provider) { provider in
+                        Section(DisplayFormatter.providerTitle(provider)) {
+                            ForEach(Array(provider.accounts.enumerated()), id: \.offset) { _, account in
+                                AccountRow(account: account, now: model.displayDate)
+                            }
+                            if let recovery = DisplayFormatter.recovery(provider, now: model.displayDate) {
+                                Text(recovery)
+                            }
                         }
                     }
                 }
-            }
-            Section("Claude Pool (5h/1w)") {
-                if model.claudeRows.isEmpty {
-                    Text(!model.claudeEnabled ? "Disabled" : model.claudeErrorMessage == nil ? "No accounts" : "Unavailable")
-                } else {
-                    ForEach(model.claudeRows) { row in
-                        Text(DisplayFormatter.claudeRow(row))
+                if let error = model.errorMessage {
+                    Divider()
+                    Text("Error: \(error)")
+                }
+                Divider()
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { model.launchAtLoginEnabled },
+                    set: { model.setLaunchAtLogin($0) }
+                ))
+                if model.launchAtLoginRequiresApproval {
+                    Text("Launch at login requires approval")
+                    Button("Open Login Items Settings") {
+                        SMAppService.openSystemSettingsLoginItems()
                     }
                 }
-            }
-            if !model.zaiRows.isEmpty || model.zaiErrorMessage != nil {
-                Section("Z.ai Coding Plan (5h/1w)") {
-                    ForEach(model.zaiRows) { row in Text(DisplayFormatter.claudeRow(row)) }
-                    if let error = model.zaiErrorMessage { Text(error) }
+                if let error = model.launchAtLoginErrorMessage {
+                    Text("Launch at login: \(error)")
                 }
-            }
-            if let error = model.errorMessage {
                 Divider()
-                Text("Error: \(error)")
-            }
-            if let error = model.claudeErrorMessage {
-                Divider()
-                Text("Claude error: \(error)")
-            }
-            Divider()
-            Toggle("Launch at Login", isOn: Binding(
-                get: { model.launchAtLoginEnabled },
-                set: { model.setLaunchAtLogin($0) }
-            ))
-            if model.launchAtLoginRequiresApproval {
-                Text("Launch at login requires approval")
-                Button("Open Login Items Settings") {
-                    SMAppService.openSystemSettingsLoginItems()
-                }
-            }
-            if let error = model.launchAtLoginErrorMessage {
-                Text("Launch at login: \(error)")
-            }
-            Divider()
-            Button("Refresh Now") { Task { await model.refresh() } }
-                .keyboardShortcut("r")
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .keyboardShortcut("q")
+                Button("Refresh Now") { Task { await model.refresh() } }
+                    .keyboardShortcut("r")
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+                    .keyboardShortcut("q")
             }
             .onAppear { model.refreshLaunchAtLogin() }
         } label: {
-            TrayStatusLabel(
-                providers: model.trayProviders,
-                accessibilityLabel: model.trayAccessibilityLabel
-            )
+            TrayStatusLabel(items: model.labelItems, failed: model.errorMessage != nil,
+                            accessibilityLabel: model.trayAccessibilityLabel)
         }
         .menuBarExtraStyle(.menu)
     }
 }
 
-/// One provider group in the menu-bar label. Hidden providers are simply absent.
-struct TrayProviderLabel: Equatable {
-    let name: String
-    let iconName: String
-    let text: String
-    let hasExpiringReset: Bool
+private struct AccountRow: View {
+    let account: TrayQuotaAccount
+    let now: Date
+
+    var body: some View {
+        let row = Text(DisplayFormatter.accountRow(account)).strikethrough(account.state == "paused")
+        if let resets = DisplayFormatter.resetCredits(account, now: now) {
+            row + Text(" \(Image(systemName: "ticket"))\(resets)")
+        } else {
+            row
+        }
+    }
 }
 
 @MainActor
 private struct TrayStatusLabel: View {
-    let providers: [TrayProviderLabel]
+    let items: [TrayLabelItem]
+    let failed: Bool
     let accessibilityLabel: String
 
     @ViewBuilder
     var body: some View {
-        if providers.isEmpty {
-            // Every provider has ample quota; keep the menu reachable.
-            Image(systemName: "chart.bar")
+        if items.isEmpty {
+            // Nothing needs attention; keep the menu reachable.
+            Image(systemName: failed ? "exclamationmark.triangle" : "chart.bar")
                 .accessibilityLabel(accessibilityLabel)
         } else {
-            Self.statusImage(providers: providers, accessibilityLabel: accessibilityLabel)
+            Self.statusImage(items: items, accessibilityLabel: accessibilityLabel)
         }
     }
 
@@ -121,10 +103,10 @@ private struct TrayStatusLabel: View {
         let icon: CGImage?
         let text: String
         let textWidth: CGFloat
-        let hasExpiringReset: Bool
+        let showsResetIcon: Bool
     }
 
-    private static func statusImage(providers: [TrayProviderLabel], accessibilityLabel: String) -> Image {
+    private static func statusImage(items: [TrayLabelItem], accessibilityLabel: String) -> Image {
         let height: CGFloat = 16
         let iconSize: CGFloat = 14
         let iconTextGap: CGFloat = 3
@@ -135,17 +117,15 @@ private struct TrayStatusLabel: View {
         func textWidth(_ text: String) -> CGFloat {
             ceil((text as NSString).size(withAttributes: attributes).width)
         }
-        let groups = providers.map { provider in
+        let groups = items.map { item in
             // A provider without a bundled icon falls back to its name inside the label.
-            let icon = ProviderIconStore.cgImage(named: provider.iconName)
-            let text = icon == nil ? "\(provider.name) \(provider.text)" : provider.text
-            return Group(icon: icon, text: text, textWidth: textWidth(text), hasExpiringReset: provider.hasExpiringReset)
+            let icon = DisplayFormatter.providerIcon(item.provider).flatMap(ProviderIconStore.cgImage(named:))
+            let text = icon == nil ? "\(DisplayFormatter.providerName(item.provider)) \(item.text)" : item.text
+            return Group(icon: icon, text: text, textWidth: textWidth(text), showsResetIcon: item.showsResetIcon)
         }
-        let markWidth = textWidth("!")
-        let warningWidth = iconTextGap + iconSize + iconTextGap + markWidth
         func groupWidth(_ group: Group) -> CGFloat {
             (group.icon == nil ? 0 : iconSize + iconTextGap) + group.textWidth
-                + (group.hasExpiringReset ? warningWidth : 0)
+                + (group.showsResetIcon ? iconTextGap + iconSize : 0)
         }
         let width = groups.reduce(CGFloat.zero) { $0 + groupWidth($1) }
             + CGFloat(max(groups.count - 1, 0)) * groupGap
@@ -164,14 +144,10 @@ private struct TrayStatusLabel: View {
                 var text = context.resolve(Text(group.text).font(textFont))
                 text.shading = .color(.white)
                 context.draw(text, at: CGPoint(x: textX, y: height / 2), anchor: .leading)
-                if group.hasExpiringReset {
-                    let ticketX = textX + group.textWidth + iconTextGap
+                if group.showsResetIcon {
                     var ticket = context.resolve(Image(systemName: "ticket"))
                     ticket.shading = .color(.white)
-                    context.draw(ticket, in: CGRect(x: ticketX, y: 1, width: iconSize, height: iconSize))
-                    var mark = context.resolve(Text("!").font(textFont))
-                    mark.shading = .color(.white)
-                    context.draw(mark, at: CGPoint(x: ticketX + iconSize + iconTextGap, y: height / 2), anchor: .leading)
+                    context.draw(ticket, in: CGRect(x: textX + group.textWidth + iconTextGap, y: 1, width: iconSize, height: iconSize))
                 }
                 x += groupWidth(group) + groupGap
             }
@@ -231,137 +207,68 @@ private enum ProviderIconStore {
 
 @MainActor
 final class TrayViewModel: ObservableObject {
-    private static let logger = Logger(
-        subsystem: "local.opencodex.quota-tray",
-        category: "widget-configuration"
-    )
+    /// Label changes and countdowns advance every minute; reads follow the configured poll interval.
+    static let minimumTick: TimeInterval = TrayTickSchedule.tick
 
-    // Native menu-bar labels need a direct Image/Text view. Drive time updates
-    // through observable state instead of wrapping menu content in TimelineView.
     @Published private(set) var displayDate = Date()
-    private var displayClock: AnyCancellable?
-
-    var hasExpiringReset: Bool {
-        codexRows.contains { $0.expiringReset(at: displayDate) != nil }
-    }
-
-    // Ample-quota hiding from the last successful refresh; errors and disabled providers reset it.
-    @Published private(set) var codexHasAmpleQuota = false
-    @Published private(set) var claudeHasAmpleQuota = false
-    @Published private(set) var zaiHasAmpleQuota = false
-
-    /// An expiring banked reset is actionable, so it keeps Codex in the menu bar.
-    var hideCodexFromTray: Bool { codexHasAmpleQuota && !hasExpiringReset }
-    var hideClaudeFromTray: Bool { claudeHasAmpleQuota }
-    var hideZaiFromTray: Bool { zaiHasAmpleQuota }
-
-    var trayProviders: [TrayProviderLabel] {
-        var providers: [TrayProviderLabel] = []
-        if !hideClaudeFromTray {
-            providers.append(TrayProviderLabel(name: "Claude", iconName: "ProviderIcon-claude", text: claudeTrayTitle, hasExpiringReset: false))
-        }
-        if !hideCodexFromTray {
-            providers.append(TrayProviderLabel(name: "Codex", iconName: "ProviderIcon-codex", text: codexTrayTitle, hasExpiringReset: hasExpiringReset))
-        }
-        if let zaiTrayTitle, !hideZaiFromTray {
-            providers.append(TrayProviderLabel(name: "Z.ai", iconName: "ProviderIcon-zai", text: zaiTrayTitle, hasExpiringReset: false))
-        }
-        return providers
-    }
-
-    @Published private(set) var zaiRows: [ClaudeAccountAllowance] = []
-    @Published private(set) var zaiTrayTitle: String?
-    @Published private(set) var zaiErrorMessage: String?
+    @Published private(set) var quota: TrayQuota?
+    @Published private(set) var labelItems: [TrayLabelItem] = []
     @Published private(set) var sourceLabel = "Connecting to OpenCodex…"
-    @Published private(set) var codexEnabled = true
-    @Published private(set) var claudeEnabled = true
-    @Published private(set) var claudeTrayTitle = "…"
-    @Published private(set) var codexTrayTitle = "…"
-    @Published private(set) var claudeRows: [ClaudeAccountAllowance] = []
-    @Published private(set) var codexRows: [AccountAllowance] = []
     @Published private(set) var errorMessage: String?
-    @Published private(set) var claudeErrorMessage: String?
     @Published private(set) var launchAtLoginEnabled = false
     @Published private(set) var launchAtLoginRequiresApproval = false
     @Published private(set) var launchAtLoginErrorMessage: String?
 
     var trayAccessibilityLabel: String {
-        let providers = trayProviders
-        guard !providers.isEmpty else {
-            return "OpenCodex Quota Tray, every pool above \(Int(TrayVisibility.hideThresholdPercent))% remaining"
+        if labelItems.isEmpty {
+            return errorMessage == nil ? "OpenCodex Quota Tray" : "OpenCodex Quota Tray, quota unavailable"
         }
-        var parts = providers.map { "\($0.name) \($0.text)" }
-        if providers.contains(where: { $0.name == "Z.ai" }) { parts.append("5-hour / 1-week remaining") }
-        if hasExpiringReset { parts.append("banked reset expires in less than 7 days") }
-        return parts.joined(separator: ", ")
+        return labelItems.map { "\(DisplayFormatter.providerName($0.provider)) \($0.text)" }.joined(separator: ", ")
     }
 
     private let refresher: QuotaRefresher?
+    private var schedule: TrayTickSchedule
     private let launchAtLoginController: LaunchAtLoginController
-    private let interval: TimeInterval
+    private var planner = TrayLabelPlanner()
     private var pollingTask: Task<Void, Never>?
 
     init(
         refresher: QuotaRefresher?,
-        interval: TimeInterval,
+        pollInterval: TimeInterval = TrayViewModel.minimumTick,
         startupError: String? = nil,
         launchAtLoginService: any LaunchAtLoginService = MainAppLaunchAtLoginService()
     ) {
         self.refresher = refresher
-        self.interval = interval
+        self.schedule = TrayTickSchedule(pollInterval: pollInterval)
         self.launchAtLoginController = LaunchAtLoginController(service: launchAtLoginService)
         self.errorMessage = startupError
-        if startupError != nil {
-            claudeTrayTitle = "!"
-            codexTrayTitle = "!"
-        }
         syncLaunchAtLoginState()
-        displayClock = Timer.publish(every: 60, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] date in self?.displayDate = date }
     }
 
     static func bootstrap() -> TrayViewModel {
         do {
             let config = try TrayConfiguration.load(environment: ProcessInfo.processInfo.environment)
-            let logger = Self.logger
-            let loader = AdaptiveQuotaSnapshotLoader(configuration: config) { connection in
-                do {
-                    let store = try WidgetConfigurationStore.shared()
-                    let widgetConfig = WidgetConnectionConfiguration(
-                        baseURL: config.baseURL, adminToken: "", requestTimeout: config.requestTimeout,
-                        connection: connection
-                    )
-                    if (try? store.load()) != widgetConfig {
-                        try store.save(widgetConfig)
-                        WidgetCenter.shared.reloadAllTimelines()
-                    }
-                } catch {
-                    logger.error("Failed to sync widget connection: \(error.localizedDescription, privacy: .public)")
-                }
-            }
             return TrayViewModel(
-                refresher: QuotaRefresher(loader: loader),
-                interval: config.pollInterval
+                refresher: QuotaRefresher(loader: TrayQuotaLoader(configuration: config)),
+                pollInterval: config.pollInterval
             )
         } catch {
-            return TrayViewModel(refresher: nil, interval: 60, startupError: error.localizedDescription)
+            return TrayViewModel(refresher: nil, startupError: error.localizedDescription)
         }
     }
 
     func startPolling() {
         guard pollingTask == nil, refresher != nil else { return }
         pollingTask = Task { [weak self] in
-            guard let self else { return }
             while !Task.isCancelled {
-                await refresh()
-                try? await Task.sleep(for: .seconds(interval))
+                guard let self else { return }
+                if self.schedule.next() { await self.refresh() } else { self.replan() }
+                try? await Task.sleep(for: .seconds(TrayTickSchedule.tick), tolerance: .seconds(5))
             }
         }
     }
 
     func refreshLaunchAtLogin() {
-        displayDate = Date()
         launchAtLoginController.refresh()
         syncLaunchAtLoginState()
     }
@@ -379,38 +286,19 @@ final class TrayViewModel: ObservableObject {
 
     func refresh() async {
         guard let refresher else { return }
-        let snapshot = await refresher.refresh().snapshot
-        displayDate = Date()
-        sourceLabel = snapshot.sourceLabel ?? "OpenCodex source unavailable"
-        codexEnabled = snapshot.codexEnabled ?? true
-        claudeEnabled = snapshot.claudeEnabled ?? true
-        zaiRows = snapshot.zaiSummary?.rows ?? []
-        zaiErrorMessage = snapshot.zaiErrorMessage
-        zaiTrayTitle = snapshot.zaiSummary.flatMap { $0.rows.isEmpty ? nil : DisplayFormatter.claudeTrayTitle($0) }
-            ?? (snapshot.zaiErrorMessage == nil ? nil : "!")
-        zaiHasAmpleQuota = snapshot.zaiErrorMessage == nil && snapshot.zaiSummary?.hideFromTray == true
-        codexRows = []
-        claudeRows = []
-        if let codexSummary = snapshot.codexSummary {
-            codexRows = codexSummary.rows
-            codexTrayTitle = codexEnabled ? DisplayFormatter.codexTrayTitle(codexSummary) : "–"
-            codexHasAmpleQuota = codexEnabled && codexSummary.hideFromTray
-            errorMessage = nil
-        } else {
-            codexTrayTitle = "!"
-            codexHasAmpleQuota = false
-            errorMessage = snapshot.codexErrorMessage
-        }
-        if let claudeSummary = snapshot.claudeSummary {
-            claudeRows = claudeSummary.rows
-            claudeTrayTitle = claudeEnabled ? DisplayFormatter.claudeTrayTitle(claudeSummary) : "–"
-            claudeHasAmpleQuota = claudeEnabled && claudeSummary.hideFromTray
-            claudeErrorMessage = nil
-        } else {
-            claudeTrayTitle = "!"
-            claudeHasAmpleQuota = false
-            claudeErrorMessage = snapshot.claudeErrorMessage
-        }
+        let load = await refresher.refresh()
+        let now = Date()
+        sourceLabel = load.sourceLabel ?? "OpenCodex source unavailable"
+        errorMessage = load.errorMessage
+        if quota != load.quota { quota = load.quota }
+        replan(at: now)
+    }
+
+    /// Re-evaluates the label and countdowns against the last read without touching the network.
+    private func replan(at now: Date = Date()) {
+        displayDate = now
+        let items = planner.update(quota, now: now)
+        if labelItems != items { labelItems = items }
     }
 }
 

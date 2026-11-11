@@ -4,134 +4,69 @@
 
 # OpenCodex Quota Tray
 
-Native macOS 14+ menu-bar app and Notification Center widget. Polls OpenCodex,
-shows Codex and Claude pool allowances, and never mutates account state.
+Native macOS 14+ menu-bar app. Reads the weighted pool view from
+[OpenCodex](https://github.com/lidge-jun/opencodex) once a minute and shows how
+much Codex, Claude, and Z.ai allowance is left. It never mutates account state.
 
-[OpenCodex](https://github.com/lidge-jun/opencodex) is a local proxy that
-multiplexes several Codex and Claude accounts behind one endpoint and tracks
-their quota usage. This app sits in the macOS menu bar, polls that proxy, and
-turns its per-account quota data into at-a-glance pool totals.
+Every number comes from OpenCodex's `GET /api/quota-pool/tray` read
+(`ocx.quota-tray/1`): pooled remaining per window, plan units, blocked state,
+recovery times, and reset credits. The tray only floors percentages and formats
+durations; it does no quota math, plan weighting, or calibration. It therefore
+needs an OpenCodex build that serves that route.
 
-![Menu-bar dropdown showing Codex and Claude pool percentages with per-account rows](assets/tray-screenshot.png)
+![Menu-bar dropdown with per-provider account rows](assets/tray-screenshot.png)
 
-## Quota math
+## Menu-bar label
 
-When the Codex main login also appears in the pool, the named pool entry takes
-precedence in both the menu and widget. The duplicate `main` row and allowance
-are excluded even when pause flags differ; the named pool entry determines
-whether that account contributes to totals. Matching requires the same email
-and plan, with weekly reset
-timestamps within two seconds to allow for differences between streaming headers
-and usage API snapshots. Email and plan comparisons ignore case and surrounding
-whitespace. OpenCodex may mask emails and does not expose upstream account IDs,
-so this is a conservative match using the available metadata. Missing match
-fields leave `main` visible.
-If a refresh straddles the weekly reset, `main` can reappear until both copies
-report matching new reset timestamps.
+The label stays quiet unless something changed:
 
-Codex native allowance uses each account's `autoSwitchThresholdOverride`, falling
-back to the global `autoSwitchThreshold` from `/api/codex-auth/active` when the
-override is absent, null, or invalid. Public OpenCodex versions without per-account
-overrides therefore use the global setting. If the global setting cannot be read,
-accounts without a valid override retain `100` native allowance. Threshold `0`
-disables auto-switching and also means `100` allowance. Thresholds must be integers
-from `0` to `100`; malformed optional fields do not break quota refresh.
+- A provider whose pooled 5-hour and weekly remaining are both above `95%` is
+  never shown.
+- Otherwise its icon and floored `5h/weekly` remaining (for example `38%/99%`)
+  appear for one minute whenever that text differs from what was last shown,
+  including the first read below `95%`.
+- When OpenCodex reports the provider blocked (the 5-hour or weekly window is
+  spent on every account), it stays shown as `0%/0%` with the time until the
+  nearest recovery: `2d 3h` for a weekly block, `1h30m` for a 5-hour one. A
+  weekly block also shows the reset ticket when a banked reset is available.
 
-Codex shows remaining allowance as `5h/1w`, like Claude. Display converts both
-windows to Pro-equivalent units using fixed display
-weights: `pro = 1`, `prolite = 0.25`, `plus = 0.05`. These weights preserve the
-app's normalization convention; they are not a guarantee of current provider
-capacity ratios. Five-hour and weekly windows are independent: neither substitutes
-for the other when missing, and no conversion between them is assumed.
+Providers without a 5-hour window show a single weekly number. With nothing to
+show, a small chart icon keeps the menu reachable.
+
+## Dropdown
+
+Each provider gets a section with one row per account, then its recovery row:
 
 ```text
-native remaining = max(native allowance - window usage, 0)
-Pro-equivalent value = native value * plan factor
-row = 5-hour remaining / 1-week remaining
-tray = floor(sum(5-hour remaining)) / floor(sum(1-week remaining)), unpaused accounts only
+Codex 30%/90%
+  alex@examp [prolite x10] 30%/90%   🎟 x2, 2d3h
+  work [plus x1] 7%/40%
+  5h/7d recovery: 1h30m (+30%) | 4h9m (+10%)
 ```
 
-For example, a ProLite account with a `50%` threshold has `12.5%` total
-Pro-equivalent allowance (`25% × 0.5`). With `20%` native weekly usage, its row
-shows `—/7.5%` (ProLite has no five-hour window). Remaining allowance clamps to
-zero at the threshold.
-Menu-bar and widget totals use the same adjusted values.
+- The account name is cut at the first space or 10 characters.
+- `[plan xN]` is the plan and its basic units as OpenCodex weights them.
+- Usage is 5-hour/weekly remaining; accounts or providers without a 5-hour
+  window show only the weekly number, and the recovery row becomes
+  `7d recovery: …`.
+- The ticket shows banked reset count and time to the soonest expiry. OpenCodex
+  learns expiry dates in the background, so a fresh count can appear without
+  an expiry first.
+- Paused and reauth accounts are marked inline.
 
-Example with auto-switching disabled:
+`Refresh Now`, `Launch at Login`, and `Quit` sit below the sections.
 
-```text
-main (Pro, weekly spent): —/0%
-workmate (ProLite): —/11.75%
-plus (Plus, 40% 5-hour / 50% weekly used): 3%/2.5%
-tray: —/floor(0 + 11.75 + 2.5) = —/14%
-```
+## Refresh and cost
 
-Tray total represents absolute Pro-equivalent allowance, not ratio. Multiple
-accounts can therefore produce values above `100%`.
-
-Paused Codex accounts remain visible with strikethrough and `(paused)` at the end,
-but contribute nothing to pool totals. An entirely paused pool displays `0%`.
-Pause status is read from OpenCodex; the tray does not change it.
-
-A ticket icon and `!` appear beside Codex usage when an account has a banked
-reset expiring in less than seven days. Its dropdown row shows `(🎟 exp in 2d 3h)`
-using the nearest unexpired reset. Paused accounts also qualify. Countdowns
-update every minute; expired resets and resets exactly seven days away are excluded.
-Expiry dates come from OpenCodex's read-only reset-credit endpoint for each account,
-since the usage response can contain a stale reset count. A failed lookup leaves
-quota visible without an expiry indicator. The app never redeems reset credits.
-
-Missing weekly quota or unknown plan in an unpaused account displays `—` and makes tray total `—`
-rather than inventing capacity.
-
-OpenCodex reports the Codex five-hour window as `shortPercent`. Plans without a
-five-hour limit (currently Pro and ProLite) report only a weekly window and show
-`—` in their row's 5-hour slot. While any such account is unpaused and has weekly
-allowance left, OpenCodex can fall back to it once every five-hour window is
-spent, so the pool 5-hour total shows `—` (unlimited). Accounts without a limit
-that are paused or out of weekly allowance are skipped, and the 5-hour total sums
-the remaining real windows (in the example above, workmate keeps it unlimited).
-Hub responses and older widget caches cannot prove an absent limit; their missing
-5-hour usage stays unknown, which also shows `—` but keeps Codex in the menu bar.
-
-Claude converts OpenCodex's raw per-account Anthropic utilization to remaining
-allowance. No plan conversion is applied:
-
-```text
-Claude remaining = max(100 - usage, 0)
-Claude row = 5-hour remaining / 1-week remaining
-Claude tray = floor(sum(5-hour remaining)) / floor(sum(1-week remaining))
-```
-
-For example, `3%` 5-hour utilization and `12%` weekly utilization displays as
-`97%/88%`. Like Codex, each Claude pool total is absolute across accounts and
-can exceed `100%`. A missing window displays `—` in only that slot.
-
-## Ample-quota hiding
-
-A provider disappears from the menu-bar label when both its 5-hour and weekly
-pool remaining totals exceed `95%`. The check uses the unrounded totals in the
-existing pool units (Pro-equivalent for Codex, raw for Claude and Z.ai) and only
-unpaused Codex accounts. The dropdown keeps every provider and row.
-
-Missing quota, unknown plans, refresh errors, and disabled providers keep the
-provider visible, and an expiring banked reset keeps Codex visible so its ticket
-warning stays in view. If every provider is hidden, a small chart icon keeps the
-menu accessible.
-
-Codex 5-hour usage comes from the account's `quota.fiveHourPercent` or, as
-OpenCodex's Codex pool reports it, `quota.shortPercent`. An unlimited Codex 5-hour
-pool counts as ample, so weekly allowance alone decides hiding. Hub quota responses
-currently carry no Codex 5-hour usage, so hub clients keep Codex in the menu bar.
+One timer drives everything: one HTTP read per minute in steady state, and the
+label and countdowns update on the same tick. Host role and enrollment are
+checked once and reused until the local OpenCodex config changes or a read
+fails. Concurrent refresh requests are coalesced.
 
 ## Configure
 
 Finder-launched apps do not reliably inherit shell environment. Optionally
-create this file to override defaults:
-
-```text
-~/.config/opencodex-quota-tray/config.json
-```
+create `~/.config/opencodex-quota-tray/config.json`:
 
 ```json
 {
@@ -140,44 +75,22 @@ create this file to override defaults:
 }
 ```
 
-Environment variables remain supported and override config-file values.
-
-Optional env:
+Environment variables override config-file values:
 
 | Variable | Default |
 | --- | --- |
-| `POLL_INTERVAL_MS` | `60000` |
+| `POLL_INTERVAL_MS` | `60000` (values below a minute are raised to it; the label and countdowns still update every minute) |
 | `REQUEST_TIMEOUT_MS` | `30000` |
 | `OPENCODEX_BASE_URL` | `http://127.0.0.1:10100` |
 | `OPENCODEX_HOME` | `$HOME/.opencodex` |
 
-Tray checks host mode and rereads OpenCodex config/credentials every refresh.
-Standalone and hub hosts use local management quota APIs with `admin-api-token`.
-Client hosts use their enrolled `service-api-token` for `GET /v1/hub-quota` on the
-connected hub. The hub must support this endpoint and explicitly grant
-`allowQuotaRead: true` to that client key. Local admin credentials are never used
-for hub quota requests.
-
-The menu and widget identify the source and mark disabled Codex/Claude providers.
-Unknown quota stays unknown. A changed connection or failed validation clears old
-rows; client mode never falls back to unrelated local accounts. HTTPS is required
-for remote origins, and credentialed requests refuse redirects. Direct hub
-transport is supported; Remote Link transport is not supported yet.
-
-## Notification Center widget
-
-Install and open the signed app once so macOS discovers `OpenCodex Quota` and
-the tray copies its validated read-only connection settings into the shared App
-Group. Add the widget from Notification Center's gallery in small or medium
-size. It requests fresh Codex and Claude quota every 30 minutes and works while
-the tray app is stopped; macOS may defer refreshes.
-
-The shared connection file is atomic, owner-only (`0600`), and available only
-to app components signed for `KTNPDHXXV3.opencodex.quota-tray.shared`. Keep the tray running when changing OpenCodex enrollment or credentials so its
-next refresh publishes the new connection. Restart the tray after changing the
-tray-specific config file. Widgets verify the host enrollment before using a
-stored hub key; stale settings show unavailable until the tray refreshes. Custom `XDG_CONFIG_HOME` and `OPENCODEX_HOME` paths work because
-only the tray reads those source files.
+Standalone and Home hosts read `/api/quota-pool/tray` locally with
+`admin-api-token`. Link clients read the Home's view through
+`/api/machine/hub-relay/api/quota-pool/tray` with their enrolled credentials.
+Direct Hub clients are not supported: the tray shows an error asking to connect
+with Link.
+HTTPS is required for remote origins, and credentialed requests refuse
+redirects.
 
 ## Develop
 
@@ -194,10 +107,6 @@ Local builds use an ad-hoc signature and do not contact Apple:
 ./scripts/build-app.sh
 open dist/OpenCodexTray.app
 ```
-
-Ad-hoc builds verify compilation and resources, but live App Group sharing
-requires both bundles to use the matching Team-ID signature. The trusted build
-below supplies that signature.
 
 Trusted direct distribution requires the local Developer ID identity and a
 one-time Notary service Keychain profile:
@@ -224,33 +133,9 @@ This signs, notarizes, staples, and verifies the release. The distributable
 artifact is `dist/OpenCodexTray.zip`. Environment variables override values
 loaded from `.env`.
 
-Tray title shows Claude icon + remaining Claude pool `5h/1w` allowance, then
-Codex icon + Pro-equivalent Codex pool `5h/1w` allowance. Click it for separate
-`Codex Pool (5h/1w)` and `Claude Pool (5h/1w)` sections with per-account rows,
-`Refresh Now`, errors, and `Quit`. `Launch at Login` registers the app through
-macOS Service Management. If macOS requires approval, use
-`Open Login Items Settings` from the tray menu. App has no Dock icon.
-
 ## License
 
 MIT, see [LICENSE](LICENSE).
 
 Bundled CodexBar provider icons are MIT-licensed by Peter Steinberger, see
 [Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt](Sources/OpenCodexTray/Resources/CodexBar-LICENSE.txt).
-
-## Z.ai Coding Plan
-
-Z.ai quota is read from OpenCodex's `/api/provider-quotas` endpoint (through the
-Home relay for Link clients). Reports with source `zai:quota-limit` appear in
-the menu bar, dropdown, and widget. Credentials remain managed by OpenCodex.
-No Z.ai API key or separate tray configuration is needed.
-
-Values show remaining 5-hour / weekly allowance; missing windows show `—`.
-Multiple provider configurations are displayed separately and summed without
-plan normalization. Configure each subscription only once to avoid double counting.
-If OpenCodex supplies no Z.ai report, the section is hidden. Request failures
-show an isolated Z.ai error. No reset or account mutation is performed.
-
-Hub mode accepts an optional `providers.zai` entry using the existing hub
-provider/account schema. Hubs that omit it continue to show Codex and Claude;
-the tray does not fetch Z.ai directly or change the hub service.

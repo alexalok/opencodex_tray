@@ -1,12 +1,12 @@
 public actor QuotaRefresher {
-    private let loader: any QuotaSnapshotLoading
-    private var inFlightRefresh: Task<QuotaSnapshotLoad, Never>?
+    private let loader: any TrayQuotaLoading
+    private var inFlightRefresh: Task<TrayQuotaLoad, Never>?
 
-    public init(loader: any QuotaSnapshotLoading) {
+    public init(loader: any TrayQuotaLoading) {
         self.loader = loader
     }
 
-    public func refresh() async -> QuotaSnapshotLoad {
+    public func refresh() async -> TrayQuotaLoad {
         if let inFlightRefresh { return await inFlightRefresh.value }
 
         let task = Task { [loader] in await loader.load() }
