@@ -35,6 +35,17 @@ public struct TrayQuota: Decodable, Equatable, Sendable {
     }
 }
 
+/// One account's upcoming reset in a pooled window and the share of the pool it returns.
+public struct TrayQuotaRecovery: Decodable, Equatable, Sendable {
+    public let at: Double
+    public let percent: Double
+
+    public init(at: Double, percent: Double) {
+        self.at = at
+        self.percent = percent
+    }
+}
+
 /// Times are epoch milliseconds, as OpenCodex sends them.
 public struct TrayQuotaWindow: Decodable, Equatable, Sendable {
     public let remainingPercent: Double
@@ -42,14 +53,18 @@ public struct TrayQuotaWindow: Decodable, Equatable, Sendable {
     public let exhausted: Bool?
     public let nextRecoveryAt: Double?
     public let nextRecoveryPercent: Double?
+    /// Every upcoming recovery, soonest first, one per account (OpenCodex with per-account recoveries).
+    public let recoveries: [TrayQuotaRecovery]?
 
     public init(remainingPercent: Double, resetsAt: Double? = nil, exhausted: Bool? = nil,
-                nextRecoveryAt: Double? = nil, nextRecoveryPercent: Double? = nil) {
+                nextRecoveryAt: Double? = nil, nextRecoveryPercent: Double? = nil,
+                recoveries: [TrayQuotaRecovery]? = nil) {
         self.remainingPercent = remainingPercent
         self.resetsAt = resetsAt
         self.exhausted = exhausted
         self.nextRecoveryAt = nextRecoveryAt
         self.nextRecoveryPercent = nextRecoveryPercent
+        self.recoveries = recoveries
     }
 }
 

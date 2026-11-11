@@ -29,7 +29,7 @@ struct OpenCodexTrayApp: App {
                             ForEach(Array(provider.accounts.enumerated()), id: \.offset) { _, account in
                                 AccountRow(account: account, now: model.displayDate)
                             }
-                            if let recovery = DisplayFormatter.recovery(provider, now: model.displayDate) {
+                            ForEach(DisplayFormatter.recoveries(provider, now: model.displayDate), id: \.self) { recovery in
                                 Text(recovery)
                             }
                         }

@@ -55,17 +55,20 @@ public enum DisplayFormatter {
         return "x\(credits.count), \(duration(untilMilliseconds: expiry, now: now))"
     }
 
-    /// `5h/7d recovery: 1h30m (+30%) | 4h9m (+10%)`, a single window without a 5-hour one.
-    public static func recovery(_ provider: TrayQuotaProvider, now: Date) -> String? {
-        func part(_ window: TrayQuotaWindow?) -> String {
-            guard let window, let at = window.nextRecoveryAt, let share = window.nextRecoveryPercent else { return "–" }
-            return "\(duration(untilMilliseconds: at, now: now)) (+\(percent(share)))"
+    /// One row per window with upcoming recoveries, one column per account, soonest first:
+    /// `5h recovery: 1h30m (+30%) | 3h (+10%)` then `7d recovery: …`. No 5-hour window, no 5h row.
+    public static func recoveries(_ provider: TrayQuotaProvider, now: Date) -> [String] {
+        func row(_ label: String, _ window: TrayQuotaWindow?) -> String? {
+            guard let window else { return nil }
+            // An OpenCodex without per-account recoveries still reports the pool's next one.
+            let entries = window.recoveries ?? window.nextRecoveryAt.flatMap { at in
+                window.nextRecoveryPercent.map { [TrayQuotaRecovery(at: at, percent: $0)] }
+            } ?? []
+            guard !entries.isEmpty else { return nil }
+            let columns = entries.map { "\(duration(untilMilliseconds: $0.at, now: now)) (+\(percent($0.percent)))" }
+            return "\(label) recovery: \(columns.joined(separator: " | "))"
         }
-        let windows = [provider.fiveHour, provider.weekly]
-        guard windows.contains(where: { $0?.nextRecoveryAt != nil }) else { return nil }
-        if provider.fiveHour == nil { return "7d recovery: \(part(provider.weekly))" }
-        if provider.weekly == nil { return "5h recovery: \(part(provider.fiveHour))" }
-        return "5h/7d recovery: \(part(provider.fiveHour)) | \(part(provider.weekly))"
+        return [row("5h", provider.fiveHour), row("7d", provider.weekly)].compactMap { $0 }
     }
 
     public static func providerName(_ id: String) -> String {
