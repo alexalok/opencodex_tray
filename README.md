@@ -23,7 +23,7 @@ The label stays quiet unless something changed:
 - A provider whose pooled 5-hour and weekly remaining are both above `95%` is
   never shown.
 - Otherwise its icon and floored `5h/weekly` remaining (for example `38%/99%`)
-  appear for one minute whenever that text differs from what was last shown,
+  appear for ten minutes whenever that text differs from what was last shown,
   including the first read below `95%`.
 - When OpenCodex reports the provider blocked (the 5-hour or weekly window is
   spent on every account), it stays shown as `0%/0%` with the time until the
