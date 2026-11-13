@@ -27,27 +27,30 @@ final class TrayLabelPlannerTests: XCTestCase {
         var odd = TrayTickSchedule(pollInterval: 90)
         XCTAssertEqual((0..<4).map { _ in odd.next() }, [true, false, true, false])
 
-        // Between reads the planner replays the held quota, so a change still hides after a minute.
+        // Between reads the planner replays the held quota, so a change still hides after ten minutes.
         var planner = TrayLabelPlanner()
         let held = quota(codex(39.5, 99))
         XCTAssertEqual(planner.update(held, now: minute(0)).count, 1)
-        XCTAssertEqual(planner.update(held, now: minute(1)), [])
+        XCTAssertEqual(planner.update(held, now: minute(9)).count, 1)
+        XCTAssertEqual(planner.update(held, now: minute(10)), [])
     }
 
-    func testChangeIsShownForOneMinuteThenHidden() {
+    func testChangeIsShownForTenMinutesThenHidden() {
         var planner = TrayLabelPlanner()
         XCTAssertEqual(planner.update(quota(codex(39.5, 99)), now: minute(0)), [TrayLabelItem(provider: "openai", text: "39%/99%")])
-        XCTAssertEqual(planner.update(quota(codex(39.1, 99)), now: minute(1)), [], "same floored value stays hidden")
-        XCTAssertEqual(planner.update(quota(codex(38.9, 99)), now: minute(2)), [TrayLabelItem(provider: "openai", text: "38%/99%")])
-        XCTAssertEqual(planner.update(quota(codex(38.9, 99)), now: minute(3)), [])
+        XCTAssertEqual(planner.update(quota(codex(39.1, 99)), now: minute(9)), [TrayLabelItem(provider: "openai", text: "39%/99%")])
+        XCTAssertEqual(planner.update(quota(codex(39.1, 99)), now: minute(10)), [], "same floored value does not extend the window")
+        XCTAssertEqual(planner.update(quota(codex(38.9, 99)), now: minute(11)), [TrayLabelItem(provider: "openai", text: "38%/99%")])
+        XCTAssertEqual(planner.update(quota(codex(38.9, 99)), now: minute(20)), [TrayLabelItem(provider: "openai", text: "38%/99%")])
+        XCTAssertEqual(planner.update(quota(codex(38.9, 99)), now: minute(21)), [])
     }
 
     func testFirstDipBelowThresholdIsShownAgainAfterRecovery() {
         var planner = TrayLabelPlanner()
         XCTAssertEqual(planner.update(quota(codex(94, 99)), now: minute(0)).count, 1)
-        XCTAssertEqual(planner.update(quota(codex(94, 99)), now: minute(1)), [])
-        XCTAssertEqual(planner.update(quota(codex(100, 99)), now: minute(2)), [])
-        XCTAssertEqual(planner.update(quota(codex(94, 99)), now: minute(3)), [TrayLabelItem(provider: "openai", text: "94%/99%")])
+        XCTAssertEqual(planner.update(quota(codex(94, 99)), now: minute(10)), [])
+        XCTAssertEqual(planner.update(quota(codex(100, 99)), now: minute(11)), [])
+        XCTAssertEqual(planner.update(quota(codex(94, 99)), now: minute(12)), [TrayLabelItem(provider: "openai", text: "94%/99%")])
     }
 
     func testWeeklyOnlyProviderShowsSingleValue() {

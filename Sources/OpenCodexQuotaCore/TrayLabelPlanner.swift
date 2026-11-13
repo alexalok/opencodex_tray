@@ -22,8 +22,8 @@ public struct TrayLabelItem: Equatable, Sendable {
 ///   recovers, plus the reset icon when the weekly window holds it and reset credits exist.
 public struct TrayLabelPlanner: Sendable {
     public static let hideAbovePercent: Double = 95
-    /// A minute, less slack for the next once-a-minute read arriving early.
-    public static let showDuration: TimeInterval = 55
+    /// Ten minutes, less slack for the once-a-minute tick arriving early.
+    public static let showDuration: TimeInterval = 10 * 60 - 5
 
     private var lastShown: [String: String] = [:]
     private var shownUntil: [String: Date] = [:]
