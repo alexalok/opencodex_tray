@@ -40,9 +40,18 @@ public struct TrayLabelPlanner: Sendable {
                 lastShown[provider.provider] = nil
                 shownUntil[provider.provider] = nil
                 let zero = provider.fiveHour == nil ? "0%" : "0%/0%"
-                let text = block.recoversAt.map { "\(zero) \(DisplayFormatter.duration(untilMilliseconds: $0, now: now, spaced: true))" } ?? zero
+                var recoversAt = block.recoversAt
+                var weeklyBlock = block.window == "weekly"
+                if let five = provider.fiveHour, let week = provider.weekly,
+                   five.isExhausted, week.isExhausted {
+                    // A burst reset cannot restore usage while the weekly allowance is empty.
+                    recoversAt = week.nextRecoveryAt ?? week.recoveries?.first?.at ?? week.resetsAt
+                        ?? (weeklyBlock ? block.recoversAt : nil)
+                    weeklyBlock = true
+                }
+                let text = recoversAt.map { "\(zero) \(DisplayFormatter.duration(untilMilliseconds: $0, now: now, spaced: true))" } ?? zero
                 items.append(TrayLabelItem(provider: provider.provider, text: text,
-                    showsResetIcon: block.window == "weekly" && provider.resetCredits > 0))
+                    showsResetIcon: weeklyBlock && provider.resetCredits > 0))
                 continue
             }
             let windows = [provider.fiveHour, provider.weekly].compactMap { $0 }
@@ -66,6 +75,10 @@ public struct TrayLabelPlanner: Sendable {
         }
         return items
     }
+}
+
+private extension TrayQuotaWindow {
+    var isExhausted: Bool { exhausted ?? (remainingPercent <= 0) }
 }
 
 /// The tray advances on a one-minute tick so label expiry and countdowns never wait on a read;

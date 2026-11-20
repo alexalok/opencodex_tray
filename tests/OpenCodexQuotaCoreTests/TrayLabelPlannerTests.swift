@@ -73,6 +73,21 @@ final class TrayLabelPlannerTests: XCTestCase {
         XCTAssertEqual(planner.update(quota(burst), now: minute(0)), [TrayLabelItem(provider: "anthropic", text: "0%/0% 1h30m")])
     }
 
+    func testBothExhaustedShowWeeklyResetInsteadOfEarlierBurstReset() {
+        var planner = TrayLabelPlanner()
+        let burst = TrayQuotaBlock(window: "5h", recoversAt: minute(30).timeIntervalSince1970 * 1_000)
+        let weekReset = minute(2 * 1_440).timeIntervalSince1970 * 1_000
+        func item(_ week: TrayQuotaWindow) -> TrayLabelItem? {
+            let provider = TrayQuotaProvider(provider: "openai", fiveHour: TrayQuotaWindow(remainingPercent: 0),
+                weekly: week, blocked: burst, resetCredits: 1)
+            return planner.update(quota(provider), now: start).first
+        }
+        XCTAssertEqual(item(TrayQuotaWindow(remainingPercent: 0, resetsAt: weekReset)),
+                       TrayLabelItem(provider: "openai", text: "0%/0% 2d 0h", showsResetIcon: true))
+        XCTAssertEqual(item(TrayQuotaWindow(remainingPercent: 0))?.text, "0%/0%")
+        XCTAssertEqual(item(TrayQuotaWindow(remainingPercent: 0.5, resetsAt: weekReset))?.text, "0%/0% 30m")
+    }
+
     func testFailedReadShowsNothing() {
         var planner = TrayLabelPlanner()
         XCTAssertEqual(planner.update(nil, now: minute(0)), [])
